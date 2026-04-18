@@ -30,7 +30,11 @@ class TaskCreate(BaseModel):
     project_id: UUID
     title: str = Field(..., min_length=1, max_length=500)
     description: str | None = Field(None, max_length=50_000)
-    status: str = Field(default="todo", max_length=32)
+    status: str | None = Field(
+        default=None,
+        max_length=32,
+        description="Если не задано — первая колонка пресета для типа проекта (project.kind)",
+    )
     position: int = Field(default=0, ge=0)
     assignee_id: UUID | None = None
 

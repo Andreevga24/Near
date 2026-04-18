@@ -24,7 +24,7 @@ from app.ws.router import router as ws_router
 from app.auth.manager import auth_backend, current_active_user, fastapi_users
 from app.db.session import engine
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 
 @asynccontextmanager
@@ -110,6 +110,11 @@ app.include_router(
     fastapi_users.get_auth_router(auth_backend),
     prefix="",
     tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/users",
+    tags=["users"],
 )
 
 app.include_router(projects_router)

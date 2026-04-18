@@ -36,8 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setToken = useCallback((t: string | null) => {
     setTokenState(t)
-    if (t) localStorage.setItem(STORAGE_KEY, t)
-    else localStorage.removeItem(STORAGE_KEY)
+    if (t) {
+      localStorage.setItem(STORAGE_KEY, t)
+      // Пока /me не ответит, user ещё null — иначе RequireAuth и редиректы видят «нет сессии».
+      setLoading(true)
+    } else {
+      localStorage.removeItem(STORAGE_KEY)
+      setUser(null)
+      setLoading(false)
+    }
   }, [])
 
   const logout = useCallback(() => {

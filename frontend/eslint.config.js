@@ -19,5 +19,16 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Загрузка данных в useEffect + setState — нормальный паттерн; правило конфликтует с ним.
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
+  {
+    files: ['src/context/**/*.tsx', 'src/components/board/boardFlowContext.tsx'],
+    rules: {
+      // Контекстные файлы экспортируют и провайдер, и хук — это ожидаемо.
+      'react-refresh/only-export-components': 'off',
+    },
   },
 ])

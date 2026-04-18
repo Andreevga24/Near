@@ -1,5 +1,5 @@
 /**
- * Канбан задач проекта (колонки todo / in_progress / done и прочие статусы).
+ * Доска проекта: задачи в виде нод (React Flow), колонки по типу проекта (kind).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -14,30 +14,24 @@ import {
   updateTask,
   type Task,
 } from '../api/tasks'
+import { TaskBoardGraph } from '../components/board/TaskBoardGraph'
+import { TaskBoardKanbanList } from '../components/board/TaskBoardKanbanList'
+import {
+  firstStatusForKind,
+  labelStatusColumn,
+  nextKanbanColumn,
+  orderedBoardColumns,
+} from '../constants/boardPresets'
+import { DEFAULT_PROJECT_KIND, isProjectKind, labelProjectKind } from '../constants/projectKinds'
 import { useAuth } from '../context/AuthContext'
+import { emitTasksChanged } from '../nearEvents'
 
-const MAIN_STATUSES = ['todo', 'in_progress', 'done'] as const
+const BOARD_VIEW_STORAGE_KEY = 'near_project_board_view'
+type BoardViewMode = 'kanban' | 'nodes'
 
-const STATUS_LABEL: Record<string, string> = {
-  todo: 'К выполнению',
-  in_progress: 'В работе',
-  done: 'Готово',
-}
-
-function labelForStatus(s: string): string {
-  return STATUS_LABEL[s] ?? s
-}
-
-function orderedStatuses(tasks: Task[]): string[] {
-  const present = new Set(tasks.map((t) => t.status))
-  const extra = [...present].filter((s) => !MAIN_STATUSES.includes(s as (typeof MAIN_STATUSES)[number])).sort()
-  return [...MAIN_STATUSES, ...extra]
-}
-
-function nextKanbanStatus(current: string): string {
-  const idx = MAIN_STATUSES.indexOf(current as (typeof MAIN_STATUSES)[number])
-  if (idx === -1) return MAIN_STATUSES[0]
-  return MAIN_STATUSES[(idx + 1) % MAIN_STATUSES.length]
+function readBoardViewMode(): BoardViewMode {
+  if (typeof window === 'undefined') return 'kanban'
+  return localStorage.getItem(BOARD_VIEW_STORAGE_KEY) === 'nodes' ? 'nodes' : 'kanban'
 }
 
 export function ProjectBoardPage() {
@@ -49,6 +43,12 @@ export function ProjectBoardPage() {
   const [error, setError] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [saving, setSaving] = useState(false)
+  const [boardView, setBoardView] = useState<BoardViewMode>(readBoardViewMode)
+
+  const setBoardViewPersist = useCallback((mode: BoardViewMode) => {
+    setBoardView(mode)
+    localStorage.setItem(BOARD_VIEW_STORAGE_KEY, mode)
+  }, [])
 
   const loadBoard = useCallback(async () => {
     if (!token || !projectId) return
@@ -79,33 +79,29 @@ export function ProjectBoardPage() {
     void loadBoard()
   }, [loadBoard])
 
-  const columns = useMemo(() => orderedStatuses(tasks), [tasks])
+  const projectKind = useMemo(() => {
+    if (!project?.kind) return DEFAULT_PROJECT_KIND
+    return isProjectKind(project.kind) ? project.kind : DEFAULT_PROJECT_KIND
+  }, [project])
 
-  const tasksByStatus = useMemo(() => {
-    const m = new Map<string, Task[]>()
-    for (const t of tasks) {
-      const arr = m.get(t.status) ?? []
-      arr.push(t)
-      m.set(t.status, arr)
-    }
-    for (const arr of m.values()) {
-      arr.sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
-    }
-    return m
-  }, [tasks])
+  const columns = useMemo(
+    () => orderedBoardColumns(projectKind, tasks),
+    [projectKind, tasks],
+  )
 
   async function handleAddTask(e: React.FormEvent) {
     e.preventDefault()
-    if (!token || !projectId || !newTitle.trim()) return
+    if (!token || !projectId || !project || !newTitle.trim()) return
     setSaving(true)
     setError(null)
     try {
       const task = await createTask(token, {
         project_id: projectId,
         title: newTitle.trim(),
-        status: 'todo',
+        status: firstStatusForKind(projectKind),
       })
       setTasks((prev) => [...prev, task])
+      emitTasksChanged()
       setNewTitle('')
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -120,7 +116,7 @@ export function ProjectBoardPage() {
 
   async function moveTask(task: Task) {
     if (!token) return
-    const next = nextKanbanStatus(task.status)
+    const next = nextKanbanColumn(task.status, columns)
     setError(null)
     try {
       const updated = await updateTask(token, task.id, { status: next })
@@ -134,6 +130,27 @@ export function ProjectBoardPage() {
     }
   }
 
+  const onTaskStatusChange = useCallback(
+    async (task: Task, newStatus: string) => {
+      if (!token) throw new Error('Нет сессии')
+      setError(null)
+      try {
+        const updated = await updateTask(token, task.id, { status: newStatus })
+        setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          logout()
+          throw err
+        }
+        setError(
+          err instanceof ApiError ? formatApiError(err.body) : 'Не удалось переместить задачу',
+        )
+        throw err
+      }
+    },
+    [token, logout],
+  )
+
   async function handleDeleteTask(task: Task) {
     if (!token) return
     if (!window.confirm(`Удалить задачу «${task.title}»?`)) return
@@ -141,6 +158,7 @@ export function ProjectBoardPage() {
     try {
       await deleteTask(token, task.id)
       setTasks((prev) => prev.filter((t) => t.id !== task.id))
+      emitTasksChanged()
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout()
@@ -162,7 +180,7 @@ export function ProjectBoardPage() {
     return (
       <div>
         <p className="text-slate-400">Проект не найден или у вас нет к нему доступа.</p>
-        <Link to="/projects" className="mt-4 inline-block text-violet-400 hover:text-violet-300">
+        <Link to="/projects/carousel" className="mt-4 inline-block text-violet-400 hover:text-violet-300">
           ← К проектам
         </Link>
       </div>
@@ -171,15 +189,55 @@ export function ProjectBoardPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <Link to="/projects" className="text-sm text-slate-500 hover:text-slate-300">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <Link to="/projects/carousel" className="text-sm text-slate-500 hover:text-slate-300">
             ← Все проекты
           </Link>
-          <h1 className="mt-1 text-2xl font-semibold text-white">{project.name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold text-white">{project.name}</h1>
+            <span className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400">
+              {labelProjectKind(projectKind)}
+            </span>
+          </div>
           {project.description ? (
             <p className="mt-2 max-w-2xl text-slate-400">{project.description}</p>
           ) : null}
+          <p className="mt-3 max-w-2xl text-xs text-slate-600">
+            Тип проекта задаётся при создании. В режиме «Ноды» перетащите карточку в другую колонку для смены статуса.
+            «Дальше →» в обоих режимах ведёт по порядку колонок.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Вид доски</p>
+          <div
+            className="mt-1 inline-flex rounded-lg border border-slate-700 bg-slate-900/80 p-0.5"
+            role="group"
+            aria-label="Режим отображения доски"
+          >
+            <button
+              type="button"
+              onClick={() => setBoardViewPersist('kanban')}
+              className={
+                boardView === 'kanban'
+                  ? 'rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white'
+                  : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }
+            >
+              Канбан
+            </button>
+            <button
+              type="button"
+              onClick={() => setBoardViewPersist('nodes')}
+              className={
+                boardView === 'nodes'
+                  ? 'rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white'
+                  : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }
+            >
+              Ноды
+            </button>
+          </div>
         </div>
       </div>
 
@@ -208,51 +266,30 @@ export function ProjectBoardPage() {
           disabled={saving || !newTitle.trim()}
           className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
         >
-          {saving ? 'Добавление…' : 'Добавить в «К выполнению»'}
+          {saving
+            ? 'Добавление…'
+            : `Добавить в «${labelStatusColumn(firstStatusForKind(projectKind))}»`}
         </button>
       </form>
 
-      <div className="mt-8 flex gap-4 overflow-x-auto pb-2">
-        {columns.map((status) => (
-          <section
-            key={status}
-            className="min-w-[min(100%,280px)] w-[min(100%,280px)] shrink-0 rounded-xl border border-slate-800 bg-slate-900/40"
-          >
-            <header className="border-b border-slate-800 px-3 py-2">
-              <h2 className="text-sm font-medium text-slate-300">{labelForStatus(status)}</h2>
-              <p className="text-xs text-slate-600">{status}</p>
-            </header>
-            <ul className="space-y-2 p-2">
-              {(tasksByStatus.get(status) ?? []).map((task) => (
-                <li
-                  key={task.id}
-                  className="rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-sm"
-                >
-                  <p className="font-medium text-slate-100">{task.title}</p>
-                  {task.description ? (
-                    <p className="mt-1 text-xs text-slate-500">{task.description}</p>
-                  ) : null}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void moveTask(task)}
-                      className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
-                    >
-                      Дальше →
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteTask(task)}
-                      className="rounded border border-red-900/50 px-2 py-1 text-xs text-red-300 hover:bg-red-950/30"
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+      <div className="mt-8">
+        {boardView === 'kanban' ? (
+          <TaskBoardKanbanList
+            columns={columns}
+            tasks={tasks}
+            onMoveNext={(t) => void moveTask(t)}
+            onDelete={(t) => void handleDeleteTask(t)}
+          />
+        ) : (
+          <TaskBoardGraph
+            kind={projectKind}
+            columns={columns}
+            tasks={tasks}
+            onMoveNext={(t) => void moveTask(t)}
+            onDelete={(t) => void handleDeleteTask(t)}
+            onTaskStatusChange={onTaskStatusChange}
+          />
+        )}
       </div>
     </div>
   )

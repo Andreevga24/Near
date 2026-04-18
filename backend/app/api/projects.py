@@ -44,6 +44,7 @@ async def create_project(
         name=payload.name,
         description=payload.description,
         owner_id=user.id,
+        kind=payload.kind.value,
     )
     session.add(project)
     await session.commit()
@@ -60,7 +61,7 @@ async def update_project(
 ) -> Project:
     """Обновить название/описание проекта."""
     project = await get_owned_project_or_404(session, user, project_id)
-    data = payload.model_dump(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True, mode="json")
     if not data:
         return project
     for key, value in data.items():

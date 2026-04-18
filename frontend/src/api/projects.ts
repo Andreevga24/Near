@@ -1,3 +1,4 @@
+import type { ProjectKind } from '../constants/projectKinds'
 import { apiJson } from './client'
 
 export type Project = {
@@ -5,6 +6,7 @@ export type Project = {
   name: string
   description: string | null
   owner_id: string
+  kind: ProjectKind
   created_at: string
   updated_at: string
 }
@@ -15,7 +17,7 @@ export function listProjects(token: string): Promise<Project[]> {
 
 export function createProject(
   token: string,
-  body: { name: string; description?: string | null },
+  body: { name: string; description?: string | null; kind?: ProjectKind },
 ): Promise<Project> {
   return apiJson<Project>('/projects', token, {
     method: 'POST',

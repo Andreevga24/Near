@@ -1,58 +1,44 @@
 /**
- * Список проектов пользователя и создание нового.
+ * Создание нового проекта (список — на странице карусели /projects/carousel).
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { ApiError, formatApiError } from '../api/auth'
-import { createProject, deleteProject, listProjects, type Project } from '../api/projects'
+import { createProject } from '../api/projects'
+import {
+  DEFAULT_PROJECT_KIND,
+  labelProjectKind,
+  PROJECT_KIND_VALUES,
+  type ProjectKind,
+} from '../constants/projectKinds'
 import { useAuth } from '../context/AuthContext'
+import { emitProjectsChanged } from '../nearEvents'
 
 export function ProjectsPage() {
   const { token, logout } = useAuth()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [kind, setKind] = useState<ProjectKind>(DEFAULT_PROJECT_KIND)
   const [saving, setSaving] = useState(false)
 
-  const load = useCallback(async () => {
-    if (!token) return
-    setError(null)
-    setLoading(true)
-    try {
-      const list = await listProjects(token)
-      setProjects(list)
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        logout()
-        return
-      }
-      setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось загрузить проекты')
-    } finally {
-      setLoading(false)
-    }
-  }, [token, logout])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: FormEvent) {
     e.preventDefault()
     if (!token || !name.trim()) return
     setSaving(true)
     setError(null)
     try {
-      const p = await createProject(token, {
+      await createProject(token, {
         name: name.trim(),
         description: description.trim() || null,
+        kind,
       })
-      setProjects((prev) => [p, ...prev])
+      emitProjectsChanged()
       setName('')
       setDescription('')
+      setKind(DEFAULT_PROJECT_KIND)
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout()
@@ -64,27 +50,21 @@ export function ProjectsPage() {
     }
   }
 
-  async function handleDelete(id: string, title: string) {
-    if (!token) return
-    if (!window.confirm(`Удалить проект «${title}» и все задачи?`)) return
-    setError(null)
-    try {
-      await deleteProject(token, id)
-      setProjects((prev) => prev.filter((p) => p.id !== id))
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        logout()
-        return
-      }
-      setError(err instanceof ApiError ? formatApiError(err.body) : 'Ошибка удаления')
-    }
-  }
-
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-white">Мои проекты</h1>
+      <Link
+        to="/projects/carousel"
+        className="text-sm text-violet-400 hover:text-violet-300"
+      >
+        ← К карусели проектов
+      </Link>
+      <h1 className="mt-2 text-2xl font-semibold text-white">Новый проект</h1>
       <p className="mt-2 text-slate-400">
-        Создайте проект и откройте канбан-доску задач.
+        Выберите тип — от него зависят колонки на доске. Список и открытие досок — в{' '}
+        <Link to="/projects/carousel" className="text-violet-400 hover:text-violet-300">
+          карусели проектов
+        </Link>
+        .
       </p>
 
       {error ? (
@@ -97,7 +77,7 @@ export function ProjectsPage() {
         onSubmit={handleCreate}
         className="mt-8 rounded-xl border border-slate-800 bg-slate-900/50 p-4"
       >
-        <h2 className="text-sm font-medium text-slate-300">Новый проект</h2>
+        <h2 className="text-sm font-medium text-slate-300">Данные проекта</h2>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="block flex-1 text-sm">
             <span className="text-slate-500">Название</span>
@@ -127,52 +107,21 @@ export function ProjectsPage() {
             placeholder="Кратко о целях проекта"
           />
         </label>
-      </form>
-
-      <section className="mt-10">
-        <h2 className="text-sm font-medium text-slate-400">Все проекты</h2>
-        {loading ? (
-          <p className="mt-4 text-slate-500">Загрузка…</p>
-        ) : projects.length === 0 ? (
-          <p className="mt-4 text-slate-500">Пока нет проектов — создайте первый выше.</p>
-        ) : (
-          <ul className="mt-4 space-y-2">
-            {projects.map((p) => (
-              <li
-                key={p.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3"
-              >
-                <div>
-                  <Link
-                    to={`/projects/${p.id}`}
-                    className="font-medium text-violet-300 hover:text-violet-200"
-                  >
-                    {p.name}
-                  </Link>
-                  {p.description ? (
-                    <p className="mt-1 max-w-xl text-sm text-slate-500">{p.description}</p>
-                  ) : null}
-                </div>
-                <div className="flex gap-2">
-                  <Link
-                    to={`/projects/${p.id}`}
-                    className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-                  >
-                    Доска
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(p.id, p.name)}
-                    className="rounded-md border border-red-900/60 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/40"
-                  >
-                    Удалить
-                  </button>
-                </div>
-              </li>
+        <label className="mt-3 block text-sm">
+          <span className="text-slate-500">Тип проекта (сценарий доски)</span>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as ProjectKind)}
+            className="mt-1 w-full max-w-2xl rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+          >
+            {PROJECT_KIND_VALUES.map((k) => (
+              <option key={k} value={k}>
+                {labelProjectKind(k)}
+              </option>
             ))}
-          </ul>
-        )}
-      </section>
+          </select>
+        </label>
+      </form>
     </div>
   )
 }

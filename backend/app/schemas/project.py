@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.constants.project_kinds import DEFAULT_PROJECT_KIND, ProjectKind
+
 
 class ProjectRead(BaseModel):
     """Проект в ответах API."""
@@ -17,6 +19,7 @@ class ProjectRead(BaseModel):
     name: str
     description: str | None
     owner_id: UUID
+    kind: ProjectKind
     created_at: datetime
     updated_at: datetime
 
@@ -26,10 +29,14 @@ class ProjectCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = Field(None, max_length=10_000)
+    kind: ProjectKind = Field(
+        default=DEFAULT_PROJECT_KIND,
+        description="Сценарий доски (колонки статусов)",
+    )
 
 
 class ProjectUpdate(BaseModel):
-    """Обновление проекта (переданные поля заменяются)."""
+    """Обновление проекта (тип после создания не меняется через API)."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = Field(None, max_length=10_000)

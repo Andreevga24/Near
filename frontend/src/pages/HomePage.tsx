@@ -31,11 +31,18 @@ export function HomePage() {
           <p className="mt-2 text-xs text-slate-600">id: {user.id}</p>
           <div className="mt-10 flex flex-col items-center gap-4">
             <Link
-              to="/projects"
+              to="/projects/carousel"
               className="inline-flex rounded-lg bg-violet-600 px-6 py-3 text-sm font-medium text-white hover:bg-violet-500"
             >
               Мои проекты и доски
             </Link>
+            <p className="max-w-sm text-xs text-slate-500">
+              Email и пароль — в разделе{' '}
+              <Link to="/settings" className="text-violet-400 hover:text-violet-300">
+                «Профиль»
+              </Link>{' '}
+              в шапке.
+            </p>
           </div>
         </div>
       </div>

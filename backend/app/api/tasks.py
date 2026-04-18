@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.access import get_owned_project_or_404, get_owned_task_or_404
+from app.constants.board_presets import first_status_for_kind
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
 from app.models.project import Project
@@ -52,7 +53,7 @@ async def create_task(
     session: AsyncSession = Depends(get_async_session),
 ) -> Task:
     """Создать задачу в проекте текущего пользователя."""
-    await get_owned_project_or_404(session, user, payload.project_id)
+    project = await get_owned_project_or_404(session, user, payload.project_id)
     if payload.assignee_id is not None:
         res = await session.execute(select(User.id).where(User.id == payload.assignee_id))
         if res.scalar_one_or_none() is None:
@@ -60,11 +61,12 @@ async def create_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Исполнитель с указанным id не найден",
             )
+    eff_status = payload.status if payload.status is not None else first_status_for_kind(project.kind)
     task = Task(
         project_id=payload.project_id,
         title=payload.title,
         description=payload.description,
-        status=payload.status,
+        status=eff_status,
         position=payload.position,
         assignee_id=payload.assignee_id,
     )

@@ -29,7 +29,7 @@ export function RegisterPage() {
       await registerUser(email.trim(), password)
       const { access_token } = await loginUser(email.trim(), password)
       setToken(access_token)
-      navigate('/projects', { replace: true })
+      navigate('/projects/carousel', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? formatApiError(err.body) : String(err))
     } finally {

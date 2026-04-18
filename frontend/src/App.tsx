@@ -10,6 +10,8 @@ import { AuthProvider } from './context/AuthContext'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProjectBoardPage } from './pages/ProjectBoardPage'
+import { ProfileSettingsPage } from './pages/ProfileSettingsPage'
+import { ProjectsCarouselPage } from './pages/ProjectsCarouselPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { RegisterPage } from './pages/RegisterPage'
 
@@ -28,8 +30,10 @@ function App() {
               </RequireAuth>
             }
           >
+            <Route path="/projects/carousel" element={<ProjectsCarouselPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
+            <Route path="/settings" element={<ProfileSettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

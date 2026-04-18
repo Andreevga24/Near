@@ -24,6 +24,7 @@ class Project(Base):
     )
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kind: Mapped[str] = mapped_column(String(40), default="general", index=True)
 
     owner_id: Mapped[UUID] = mapped_column(
         GUID,
