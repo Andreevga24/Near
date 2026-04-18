@@ -8,7 +8,7 @@ import { AppHeader } from '../components/AppHeader'
 import { useAuth } from '../context/AuthContext'
 
 export function HomePage() {
-  const { user, loading, logout } = useAuth()
+  const { user, loading } = useAuth()
 
   if (loading) {
     return (
@@ -34,15 +34,8 @@ export function HomePage() {
               to="/projects"
               className="inline-flex rounded-lg bg-violet-600 px-6 py-3 text-sm font-medium text-white hover:bg-violet-500"
             >
-              Мои проекты и канбан
+              Мои проекты и доски
             </Link>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
-            >
-              Выйти
-            </button>
           </div>
         </div>
       </div>
@@ -54,7 +47,7 @@ export function HomePage() {
       <p className="text-sm uppercase tracking-widest text-violet-400">Near</p>
       <h1 className="mt-2 text-3xl font-semibold text-white">Управление проектами</h1>
       <p className="mt-4 text-slate-400">
-        Войдите или зарегистрируйтесь, чтобы работать с проектами и канбаном.
+        Войдите или зарегистрируйтесь, чтобы работать с проектами и досками задач.
       </p>
       <div className="mt-10 flex flex-wrap justify-center gap-4">
         <Link
