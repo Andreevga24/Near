@@ -1,0 +1,4 @@
+.env
+near.db
+near.db-wal
+near.db-shm

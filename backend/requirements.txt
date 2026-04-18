@@ -1,0 +1,18 @@
+# FastAPI и ASGI-сервер
+fastapi>=0.115.0,<0.116.0
+uvicorn[standard]>=0.32.0,<0.33.0
+
+# Настройки из окружения (пригодится на следующих шагах)
+pydantic-settings>=2.6.0,<3.0.0
+
+# Формы / OAuth2; версию задаёт совместимость с fastapi-users 14.x (==0.0.20)
+python-multipart==0.0.20
+
+# Пользователи: JWT + адаптер SQLAlchemy (async)
+fastapi-users[sqlalchemy]>=14.0.0,<15.0.0
+
+# БД: SQLAlchemy 2 async + SQLite (aiosqlite) + миграции
+sqlalchemy[asyncio]>=2.0.36,<2.1.0
+aiosqlite>=0.20.0,<1.0.0
+alembic>=1.14.0,<1.15.0
+greenlet>=3.1.0,<4.0.0
