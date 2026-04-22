@@ -36,6 +36,11 @@ class Task(Base):
     # Порядок внутри колонки (для drag-and-drop)
     position: Mapped[int] = mapped_column(Integer, default=0, index=True)
 
+    # Режим фокуса: приоритет (чем больше — тем важнее)
+    priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    # Дедлайн (если задан — задача будет всплывать первой)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
     assignee_id: Mapped[UUID | None] = mapped_column(
         GUID,
         ForeignKey("users.id", ondelete="SET NULL"),

@@ -19,6 +19,8 @@ class TaskRead(BaseModel):
     description: str | None
     status: str
     position: int
+    priority: int
+    due_at: datetime | None
     assignee_id: UUID | None
     created_at: datetime
     updated_at: datetime
@@ -36,6 +38,8 @@ class TaskCreate(BaseModel):
         description="Если не задано — первая колонка пресета для типа проекта (project.kind)",
     )
     position: int = Field(default=0, ge=0)
+    priority: int = Field(default=0, ge=0, le=10)
+    due_at: datetime | None = None
     assignee_id: UUID | None = None
 
 
@@ -46,4 +50,6 @@ class TaskUpdate(BaseModel):
     description: str | None = Field(None, max_length=50_000)
     status: str | None = Field(None, max_length=32)
     position: int | None = Field(None, ge=0)
+    priority: int | None = Field(None, ge=0, le=10)
+    due_at: datetime | None = None
     assignee_id: UUID | None = None

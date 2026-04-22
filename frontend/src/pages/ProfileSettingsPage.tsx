@@ -86,6 +86,15 @@ export function ProfileSettingsPage() {
         Управление email и паролем учётной записи Near.
       </p>
 
+      <div className="mt-4">
+        <Link
+          to="/settings/presets"
+          className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+        >
+          Редактор пресетов →
+        </Link>
+      </div>
+
       {msgOk ? (
         <p className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
           {msgOk}

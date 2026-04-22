@@ -6,8 +6,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link, NavLink } from 'react-router-dom'
 
 import { ApiError, formatApiError } from '../api/auth'
+import { drainOfflineQueue, getOfflineQueueSize, OFFLINE_QUEUE_CHANGED_EVENT } from '../api/offlineQueue'
 import { listProjects, type Project } from '../api/projects'
 import { listTasks } from '../api/tasks'
+import { API_BASE_URL } from '../config'
 import { useAuth } from '../context/AuthContext'
 import { NEAR_PROJECTS_CHANGED, NEAR_TASKS_CHANGED } from '../nearEvents'
 
@@ -126,21 +128,6 @@ function IconLifebuoy({ className }: { className?: string }) {
   )
 }
 
-function IconChevron({ up, className }: { up?: boolean; className?: string }) {
-  return (
-    <svg
-      className={`${className ?? ''} ${up ? '' : 'rotate-180'} transition-transform`}
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
-      <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
 function IconPanelCollapse({ className }: { className?: string }) {
   return (
     <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -214,9 +201,11 @@ export function AppSidebar() {
   )
   const [projects, setProjects] = useState<Project[]>([])
   const [taskTotal, setTaskTotal] = useState(0)
-  const [chatsOpen, setChatsOpen] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tasksRefreshNonce, setTasksRefreshNonce] = useState(0)
+  const [queueSize, setQueueSize] = useState(() => (typeof window !== 'undefined' ? getOfflineQueueSize() : 0))
+  const [syncing, setSyncing] = useState(false)
+  const [online, setOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
 
   const persistCollapse = useCallback((next: boolean) => {
     setCollapsed(next)
@@ -283,6 +272,38 @@ export function AppSidebar() {
       cancelled = true
     }
   }, [token, projectIdsKey, tasksRefreshNonce])
+
+  useEffect(() => {
+    const update = () => setQueueSize(getOfflineQueueSize())
+    const onOnline = () => {
+      setOnline(true)
+      update()
+    }
+    const onOffline = () => {
+      setOnline(false)
+      update()
+    }
+    window.addEventListener(OFFLINE_QUEUE_CHANGED_EVENT, update)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    update()
+    return () => {
+      window.removeEventListener(OFFLINE_QUEUE_CHANGED_EVENT, update)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
+
+  const syncNow = useCallback(async () => {
+    if (!token) return
+    setSyncing(true)
+    try {
+      await drainOfflineQueue({ token, apiBaseUrl: API_BASE_URL })
+    } finally {
+      setQueueSize(getOfflineQueueSize())
+      setSyncing(false)
+    }
+  }, [token])
 
   if (!user) {
     return null
@@ -406,7 +427,8 @@ export function AppSidebar() {
           collapsed={collapsed}
           icon={<IconBriefcase className="opacity-90" />}
           label="Моя компания"
-          title="Раздел в разработке"
+          to="/workspace/company"
+          title="Моя компания"
         />
 
         <div className="my-2 border-t border-white/10" />
@@ -415,63 +437,74 @@ export function AppSidebar() {
           collapsed={collapsed}
           icon={<IconMessage className="opacity-90" />}
           label="Мессенджер"
-          title="Раздел в разработке"
+          to="/workspace/messenger"
+          title="Мессенджер"
         />
 
-        <div>
-          <button
-            type="button"
-            onClick={() => setChatsOpen((o) => !o)}
-            className={`flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left hover:bg-white/[0.06] ${collapsed ? 'justify-center' : ''}`}
-            title={collapsed ? 'Личные чаты' : undefined}
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center text-white/90">
-              <IconChats />
-            </span>
-            {!collapsed ? (
-              <>
-                <span className="flex-1 text-sm text-white/90">Личные чаты</span>
-                <IconChevron up={chatsOpen} className="text-white/50" />
-              </>
-            ) : null}
-          </button>
-
-          {chatsOpen && !collapsed ? (
-            <div className="mt-1 space-y-0.5 pl-2">
-              <button
-                type="button"
-                disabled
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-white/40"
-              >
-                <span className="text-base">+</span>
-                Создать групповой чат
-              </button>
-              <p className="px-2 pb-2 pt-1 text-xs text-white/35">Чаты появятся в следующих версиях.</p>
-            </div>
-          ) : null}
-        </div>
+        <SidebarRow
+          collapsed={collapsed}
+          icon={<IconChats className="opacity-90" />}
+          label="Личные чаты"
+          to="/workspace/chats"
+          title="Личные чаты"
+        />
       </div>
 
       <div className="mt-auto space-y-0.5 border-t border-white/10 px-2 py-3">
-        <SidebarRow collapsed={collapsed} icon={<IconClipboard />} label="Лента событий" title="Раздел в разработке" />
-        <SidebarRow collapsed={collapsed} icon={<IconChart />} label="Отчёты" title="Раздел в разработке" />
-        <SidebarRow collapsed={collapsed} icon={<IconDoc />} label="Лицензия и оплаты" title="Раздел в разработке" />
-        <div
-          className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-white/50 ${collapsed ? 'justify-center' : ''}`}
-          title="Раздел в разработке"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center">
-            <IconLifebuoy />
-          </span>
-          {!collapsed ? (
-            <>
-              <span className="flex-1 truncate text-sm">Поддержка, Новости</span>
-              <span className="rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">+2</span>
-            </>
-          ) : (
-            <span className="rounded bg-red-600/90 px-1 text-[10px] font-semibold text-white">2</span>
-          )}
-        </div>
+        <SidebarRow
+          collapsed={collapsed}
+          icon={<IconLifebuoy />}
+          label={online ? 'Синхронизация' : 'Оффлайн'}
+          title={online ? 'Синхронизация (оффлайн-очередь)' : 'Оффлайн-очередь'}
+          end={
+            queueSize > 0 ? (
+              <span className="rounded bg-amber-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {queueSize}
+              </span>
+            ) : null
+          }
+        />
+        {!collapsed ? (
+          <button
+            type="button"
+            onClick={() => void syncNow()}
+            disabled={!online || syncing || queueSize === 0}
+            className="mb-2 w-full rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
+          >
+            {syncing ? 'Синхронизация…' : queueSize > 0 ? 'Синхронизировать сейчас' : 'Очередь пуста'}
+          </button>
+        ) : null}
+        <SidebarRow
+          collapsed={collapsed}
+          icon={<IconClipboard />}
+          label="Лента событий"
+          to="/workspace/feed"
+          title="Лента событий"
+        />
+        <SidebarRow
+          collapsed={collapsed}
+          icon={<IconChart />}
+          label="Отчёты"
+          to="/workspace/reports"
+          title="Отчёты"
+        />
+        <SidebarRow
+          collapsed={collapsed}
+          icon={<IconDoc />}
+          label="Лицензия и оплаты"
+          to="/workspace/billing"
+          title="Лицензия и оплаты"
+        />
+        <SidebarRow
+          collapsed={collapsed}
+          icon={<IconLifebuoy />}
+          label="Поддержка, Новости"
+          to="/workspace/support"
+          title={collapsed ? 'Поддержка и новости (+2)' : 'Поддержка и новости'}
+          end={
+            <span className="rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">+2</span>
+          }
+        />
 
         <button
           type="button"

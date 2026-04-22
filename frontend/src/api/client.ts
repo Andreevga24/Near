@@ -5,6 +5,7 @@
 import { API_BASE_URL } from '../config'
 
 import { ApiError } from './auth'
+import { enqueueOfflineRequest } from './offlineQueue'
 
 const MSG_UPSTREAM_DOWN =
   'Сервер API на порту 8000 не запущен или не отвечает. Запустите backend (uvicorn на :8000).'
@@ -32,7 +33,42 @@ export async function apiJson<T>(
   const headers = new Headers(rest.headers)
   headers.set('Authorization', `Bearer ${token}`)
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers })
+  const method = (rest.method ?? 'GET').toUpperCase()
+  const isMutation = method !== 'GET' && method !== 'HEAD'
+
+  if (isMutation && typeof navigator !== 'undefined' && navigator.onLine === false) {
+    // queue and return undefined; UI should refresh after sync
+    let body: unknown | null = null
+    if (typeof rest.body === 'string') {
+      try {
+        body = JSON.parse(rest.body)
+      } catch {
+        body = rest.body
+      }
+    }
+    enqueueOfflineRequest({ method, path, body })
+    return undefined as T
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { ...rest, headers })
+  } catch (e) {
+    // Network error: if mutation — queue
+    if (isMutation) {
+      let body: unknown | null = null
+      if (typeof rest.body === 'string') {
+        try {
+          body = JSON.parse(rest.body)
+        } catch {
+          body = rest.body
+        }
+      }
+      enqueueOfflineRequest({ method, path, body })
+      return undefined as T
+    }
+    throw e
+  }
   throwIfBadGateway(res)
 
   if (res.status === 204 || res.status === 205) {

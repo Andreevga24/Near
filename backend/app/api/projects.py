@@ -2,6 +2,7 @@
 CRUD проектов: только владелец (owner_id == текущий пользователь) видит и меняет свои проекты.
 """
 
+import secrets
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -13,6 +14,7 @@ from app.auth.manager import current_active_user
 from app.db.session import get_async_session
 from app.models.project import Project
 from app.models.user import User
+from app.schemas.public import ProjectShareRead
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.ws.hub import project_ws_hub
 
@@ -85,3 +87,42 @@ async def delete_project(
         project_id,
         {"type": "project_deleted", "project_id": str(project_id)},
     )
+
+
+@router.get("/{project_id}/share", response_model=ProjectShareRead)
+async def read_project_share(
+    project_id: UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> ProjectShareRead:
+    project = await get_owned_project_or_404(session, user, project_id)
+    return ProjectShareRead(enabled=bool(project.is_public), share_id=project.share_id)
+
+
+@router.put("/{project_id}/share/enable", response_model=ProjectShareRead)
+async def enable_project_share(
+    project_id: UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> ProjectShareRead:
+    project = await get_owned_project_or_404(session, user, project_id)
+    if not project.share_id:
+        # Достаточно случайного токена; не UUID, чтобы можно было менять формат без миграций.
+        project.share_id = secrets.token_urlsafe(24)
+    project.is_public = True
+    await session.commit()
+    await session.refresh(project)
+    return ProjectShareRead(enabled=True, share_id=project.share_id)
+
+
+@router.put("/{project_id}/share/disable", response_model=ProjectShareRead)
+async def disable_project_share(
+    project_id: UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> ProjectShareRead:
+    project = await get_owned_project_or_404(session, user, project_id)
+    project.is_public = False
+    await session.commit()
+    await session.refresh(project)
+    return ProjectShareRead(enabled=False, share_id=project.share_id)

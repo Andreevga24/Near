@@ -13,6 +13,8 @@ import {
 } from 'react'
 
 import { ApiError, fetchMe, type UserMe } from '../api/auth'
+import { API_BASE_URL } from '../config'
+import { drainOfflineQueue } from '../api/offlineQueue'
 
 const STORAGE_KEY = 'near_access_token'
 
@@ -75,6 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshUser()
   }, [refreshUser])
+
+  useEffect(() => {
+    if (!token) return
+    const onOnline = () => {
+      void drainOfflineQueue({ token, apiBaseUrl: API_BASE_URL })
+    }
+    window.addEventListener('online', onOnline)
+    // also try once on mount (in case app started online with queued items)
+    void drainOfflineQueue({ token, apiBaseUrl: API_BASE_URL })
+    return () => window.removeEventListener('online', onOnline)
+  }, [token])
 
   const value = useMemo(
     () => ({

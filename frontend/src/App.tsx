@@ -10,10 +10,14 @@ import { AuthProvider } from './context/AuthContext'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProjectBoardPage } from './pages/ProjectBoardPage'
+import { ProjectFocusPage } from './pages/ProjectFocusPage'
 import { ProfileSettingsPage } from './pages/ProfileSettingsPage'
+import { PresetEditorPage } from './pages/PresetEditorPage'
 import { ProjectsCarouselPage } from './pages/ProjectsCarouselPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { PublicProjectBoardPage } from './pages/PublicProjectBoardPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { WorkspacePlaceholderPage } from './pages/WorkspacePlaceholderPage'
 
 function App() {
   return (
@@ -21,6 +25,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/public/:shareId" element={<PublicProjectBoardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route
@@ -33,7 +38,10 @@ function App() {
             <Route path="/projects/carousel" element={<ProjectsCarouselPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
+            <Route path="/projects/:projectId/focus" element={<ProjectFocusPage />} />
             <Route path="/settings" element={<ProfileSettingsPage />} />
+            <Route path="/settings/presets" element={<PresetEditorPage />} />
+            <Route path="/workspace/:sectionId" element={<WorkspacePlaceholderPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

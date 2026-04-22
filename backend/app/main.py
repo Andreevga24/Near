@@ -20,6 +20,13 @@ from app.errors import integrity_error_detail
 import app.models  # noqa: F401
 from app.api.projects import router as projects_router
 from app.api.tasks import router as tasks_router
+from app.api.task_links import router as task_links_router
+from app.api.focus import router as focus_router
+from app.api.comments import router as comments_router
+from app.api.timeline import router as timeline_router
+from app.api.checklist import router as checklist_router
+from app.api.presets import router as presets_router
+from app.api.public import router as public_router
 from app.ws.router import router as ws_router
 from app.auth.manager import auth_backend, current_active_user, fastapi_users
 from app.db.session import engine
@@ -119,6 +126,13 @@ app.include_router(
 
 app.include_router(projects_router)
 app.include_router(tasks_router)
+app.include_router(task_links_router)
+app.include_router(focus_router)
+app.include_router(comments_router)
+app.include_router(timeline_router)
+app.include_router(checklist_router)
+app.include_router(presets_router)
+app.include_router(public_router)
 app.include_router(ws_router)
 
 

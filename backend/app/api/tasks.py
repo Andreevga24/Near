@@ -10,12 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.access import get_owned_project_or_404, get_owned_task_or_404
 from app.constants.board_presets import first_status_for_kind
+from app.constants.task_templates import checklist_markdown
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
 from app.models.project import Project
 from app.models.task import Task
+from app.models.task_checklist_item import TaskChecklistItem
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
+from app.services.presets import get_effective_kind_preset
+from app.services.timeline import add_activity
 from app.ws.hub import project_ws_hub
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -62,17 +66,37 @@ async def create_task(
                 detail="Исполнитель с указанным id не найден",
             )
     eff_status = payload.status if payload.status is not None else first_status_for_kind(project.kind)
+    eff_description = payload.description
+    if eff_description is None or (isinstance(eff_description, str) and not eff_description.strip()):
+        md = checklist_markdown(project.kind, eff_status)
+        if md:
+            eff_description = md
     task = Task(
         project_id=payload.project_id,
         title=payload.title,
-        description=payload.description,
+        description=eff_description,
         status=eff_status,
         position=payload.position,
+        priority=payload.priority,
+        due_at=payload.due_at,
         assignee_id=payload.assignee_id,
     )
     session.add(task)
     await session.commit()
     await session.refresh(task)
+    _hints, eff_checklists = await get_effective_kind_preset(session, project.kind)
+    tmpl = tuple(eff_checklists.get(eff_status, ()))
+    if tmpl:
+        for i, text in enumerate(tmpl):
+            session.add(TaskChecklistItem(task_id=task.id, text=text, position=i, is_done=False))
+        await session.commit()
+    await add_activity(
+        session,
+        task_id=task.id,
+        actor_id=user.id,
+        type="task_created",
+        data={"title": task.title, "status": task.status},
+    )
     await project_ws_hub.broadcast_json(
         payload.project_id,
         _task_ws_payload("task_created", task.id, payload.project_id),
@@ -89,6 +113,10 @@ async def update_task(
 ) -> Task:
     """Обновить поля задачи (переданные ключи)."""
     task = await get_owned_task_or_404(session, user, task_id)
+    before_status = task.status
+    before_title = task.title
+    before_priority = getattr(task, "priority", 0)
+    before_due = getattr(task, "due_at", None)
     data = payload.model_dump(exclude_unset=True)
     if not data:
         return task
@@ -104,6 +132,38 @@ async def update_task(
         setattr(task, key, value)
     await session.commit()
     await session.refresh(task)
+    if "status" in data and task.status != before_status:
+        await add_activity(
+            session,
+            task_id=task.id,
+            actor_id=user.id,
+            type="task_status_changed",
+            data={"from": before_status, "to": task.status},
+        )
+    if "title" in data and task.title != before_title:
+        await add_activity(
+            session,
+            task_id=task.id,
+            actor_id=user.id,
+            type="task_title_changed",
+            data={"from": before_title, "to": task.title},
+        )
+    if "priority" in data and getattr(task, "priority", 0) != before_priority:
+        await add_activity(
+            session,
+            task_id=task.id,
+            actor_id=user.id,
+            type="task_priority_changed",
+            data={"from": before_priority, "to": getattr(task, "priority", 0)},
+        )
+    if "due_at" in data and getattr(task, "due_at", None) != before_due:
+        await add_activity(
+            session,
+            task_id=task.id,
+            actor_id=user.id,
+            type="task_due_changed",
+            data={"from": str(before_due) if before_due else None, "to": str(getattr(task, "due_at", None)) if getattr(task, "due_at", None) else None},
+        )
     await project_ws_hub.broadcast_json(
         task.project_id,
         _task_ws_payload("task_updated", task.id, task.project_id),

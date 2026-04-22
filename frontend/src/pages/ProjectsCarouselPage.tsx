@@ -6,7 +6,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { ApiError, formatApiError } from '../api/auth'
-import { deleteProject, listProjects, type Project } from '../api/projects'
+import {
+  deleteProject,
+  disableProjectShare,
+  enableProjectShare,
+  listProjects,
+  type Project,
+  type ProjectShare,
+} from '../api/projects'
 import { badgeProjectKind, labelProjectKind } from '../constants/projectKinds'
 import { useAuth } from '../context/AuthContext'
 import { emitProjectsChanged } from '../nearEvents'
@@ -16,6 +23,7 @@ const CARD_STEP = 340
 export function ProjectsCarouselPage() {
   const { token, logout } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
+  const [shareByProject, setShareByProject] = useState<Record<string, ProjectShare | undefined>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -45,6 +53,53 @@ export function ProjectsCarouselPage() {
   const scrollByDir = useCallback((dir: -1 | 1) => {
     scrollerRef.current?.scrollBy({ left: dir * CARD_STEP, behavior: 'smooth' })
   }, [])
+
+  const publicUrlForShareId = useCallback((sid: string) => {
+    if (typeof window === 'undefined') return `/public/${sid}`
+    return `${window.location.origin}/public/${sid}`
+  }, [])
+
+  const copyToClipboard = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
+  async function handleEnableShare(projectId: string) {
+    if (!token) return
+    setError(null)
+    try {
+      const share = await enableProjectShare(token, projectId)
+      setShareByProject((prev) => ({ ...prev, [projectId]: share }))
+      if (share.share_id) {
+        await copyToClipboard(publicUrlForShareId(share.share_id))
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        logout()
+        return
+      }
+      setError(err instanceof ApiError ? formatApiError(err.body) : 'Не удалось включить публичную ссылку')
+    }
+  }
+
+  async function handleDisableShare(projectId: string) {
+    if (!token) return
+    setError(null)
+    try {
+      const share = await disableProjectShare(token, projectId)
+      setShareByProject((prev) => ({ ...prev, [projectId]: share }))
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        logout()
+        return
+      }
+      setError(err instanceof ApiError ? formatApiError(err.body) : 'Не удалось выключить публичную ссылку')
+    }
+  }
 
   async function handleDelete(id: string, title: string) {
     if (!token) return
@@ -142,6 +197,42 @@ export function ProjectsCarouselPage() {
                     >
                       Доска
                     </Link>
+                    {shareByProject[p.id]?.enabled ? (
+                      <>
+                        <a
+                          href={
+                            shareByProject[p.id]?.share_id
+                              ? publicUrlForShareId(shareByProject[p.id]!.share_id!)
+                              : '#'
+                          }
+                          onClick={(e) => {
+                            if (!shareByProject[p.id]?.share_id) return
+                            e.preventDefault()
+                            void copyToClipboard(publicUrlForShareId(shareByProject[p.id]!.share_id!))
+                          }}
+                          className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-950/40"
+                          title="Скопировать публичную ссылку"
+                        >
+                          Публичная ссылка
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => void handleDisableShare(p.id)}
+                          className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        >
+                          Выключить
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleEnableShare(p.id)}
+                        className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        title="Включить и скопировать ссылку"
+                      >
+                        Публичная ссылка
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => void handleDelete(p.id, p.name)}

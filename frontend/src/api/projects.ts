@@ -11,6 +11,11 @@ export type Project = {
   updated_at: string
 }
 
+export type ProjectShare = {
+  enabled: boolean
+  share_id: string | null
+}
+
 export function listProjects(token: string): Promise<Project[]> {
   return apiJson<Project[]>('/projects', token)
 }
@@ -30,5 +35,21 @@ export function deleteProject(token: string, projectId: string): Promise<void> {
   return apiJson<void>(`/projects/${projectId}`, token, {
     method: 'DELETE',
     parseJson: false,
+  })
+}
+
+export function readProjectShare(token: string, projectId: string): Promise<ProjectShare> {
+  return apiJson<ProjectShare>(`/projects/${projectId}/share`, token)
+}
+
+export function enableProjectShare(token: string, projectId: string): Promise<ProjectShare> {
+  return apiJson<ProjectShare>(`/projects/${projectId}/share/enable`, token, {
+    method: 'PUT',
+  })
+}
+
+export function disableProjectShare(token: string, projectId: string): Promise<ProjectShare> {
+  return apiJson<ProjectShare>(`/projects/${projectId}/share/disable`, token, {
+    method: 'PUT',
   })
 }

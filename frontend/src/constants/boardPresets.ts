@@ -110,6 +110,122 @@ export function nextKanbanColumn(current: string, columns: string[]): string {
   return columns[(idx + 1) % columns.length]!
 }
 
+export function prevKanbanColumn(current: string, columns: string[]): string {
+  if (columns.length === 0) return current
+  const idx = columns.indexOf(current)
+  if (idx === -1) return columns[columns.length - 1]!
+  return columns[(idx - 1 + columns.length) % columns.length]!
+}
+
 export function labelStatusColumn(status: string): string {
   return STATUS_COLUMN_LABELS[status] ?? status
+}
+
+export const STATUS_COLUMN_HINTS: Partial<Record<ProjectKind, Record<string, string>>> = {
+  general: {
+    todo: 'Сформулируйте результат и критерий готовности.',
+    in_progress: 'Один следующий шаг — и в done.',
+    done: 'Готово и проверено.',
+  },
+  development: {
+    backlog: 'Идеи и заявки без оценки.',
+    ready: 'Оценено, есть acceptance criteria.',
+    in_progress: 'В работе (ветка/PR).',
+    review: 'Ревью/QA перед релизом.',
+    done: 'В проде / принято.',
+  },
+  operations_support: {
+    new: 'Новые обращения. Зафиксируйте симптомы и контекст.',
+    triaged: 'Приоритизация и разбор: кто/что/когда.',
+    in_progress: 'В работе: диагностика, решение, коммуникация.',
+    waiting: 'Ожидание внешнего ответа/условий.',
+    resolved: 'Решено и подтверждено.',
+  },
+  marketing_campaigns: {
+    idea: 'Гипотеза, цель и KPI кампании.',
+    approval: 'Согласование бюджета, месседжей и каналов.',
+    production: 'Креативы, лендинг, настройки аналитики.',
+    launch: 'Запуск и мониторинг.',
+    analytics: 'Разбор результатов и выводы.',
+  },
+  hr_recruiting: {
+    sourced: 'Потенциальные кандидаты/отклики.',
+    screening: 'Скрининг: требования и мотивация.',
+    interview: 'Интервью и оценка.',
+    offer: 'Оффер и переговоры.',
+    closed: 'Закрыто (нанят/отказ).',
+  },
+  training: {
+    planned: 'План обучения и цели.',
+    materials: 'Подготовка материалов.',
+    live: 'Проведение сессии.',
+    homework: 'Домашка/проверка/обратная связь.',
+    done: 'Завершено и задокументировано.',
+  },
+  onboarding: {
+    pre_start: 'Подготовка до первого дня.',
+    week_1: 'Доступы и первые задачи.',
+    week_2: 'Самостоятельные задачи.',
+    stabilization: 'Закрепление и улучшения.',
+    done: 'Онбординг завершён.',
+  },
+  crm_sales: {
+    lead: 'Новый лид: собрать контекст.',
+    qualified: 'Квалификация: боль/бюджет/сроки.',
+    proposal: 'Предложение и КП.',
+    negotiation: 'Переговоры и условия.',
+    won: 'Сделка закрыта успешно.',
+    lost: 'Сделка проиграна: зафиксировать причину.',
+  },
+  procurement: {
+    request: 'Запрос: требования и сроки.',
+    approval: 'Согласование закупки и бюджета.',
+    tender: 'Сбор предложений / тендер.',
+    delivery: 'Поставка и приёмка.',
+    closed: 'Закрыто и оформлено.',
+  },
+  product_roadmap: {
+    discovery: 'Discovery: проблема, аудитория, гипотезы.',
+    committed: 'В плане: объём и критерии.',
+    building: 'В разработке: реализация и тесты.',
+    shipped: 'Доставлено пользователям.',
+    measuring: 'Измерение эффекта и итерации.',
+  },
+  content_editorial: {
+    idea: 'Идея: тезисы и формат.',
+    draft: 'Черновик текста/структуры.',
+    editing: 'Редактура и фактчек.',
+    publish_prep: 'Подготовка к публикации (SEO/обложка).',
+    published: 'Опубликовано и распространено.',
+  },
+  events: {
+    concept: 'Концепт: цель, аудитория, формат.',
+    logistics: 'Локация, подрядчики, расписание.',
+    promo: 'Промо и регистрации.',
+    event_day: 'День события: контроль выполнения.',
+    retrospective: 'Разбор, метрики, выводы.',
+  },
+  goals_kpi: {
+    kpi_draft: 'Черновик цели и метрик.',
+    active: 'В работе: регулярный трекинг.',
+    at_risk: 'Риск: нужен план восстановления.',
+    achieved: 'Достигнуто и зафиксировано.',
+    missed: 'Не достигнуто: анализ причин.',
+  },
+  strategy: {
+    hypothesis: 'Гипотеза направления.',
+    analysis: 'Анализ данных и вариантов.',
+    decision: 'Выбор решения и критерии успеха.',
+    execution: 'Реализация инициатив.',
+    monitoring: 'Мониторинг результатов.',
+  },
+  personal: {
+    wishlist: 'Список желаний/идей.',
+    in_progress: 'Делаю сейчас.',
+    done: 'Сделано.',
+  },
+}
+
+export function hintForStatus(kind: ProjectKind, status: string): string | null {
+  return STATUS_COLUMN_HINTS[kind]?.[status] ?? null
 }
