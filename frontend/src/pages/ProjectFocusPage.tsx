@@ -100,7 +100,7 @@ export function ProjectFocusPage() {
     return (
       <div>
         <p className="text-slate-400">Проект не найден или у вас нет к нему доступа.</p>
-        <Link to="/projects/carousel" className="mt-4 inline-block text-violet-400 hover:text-violet-300">
+        <Link to="/projects/carousel" className="near-link mt-4 inline-block">
           ← К проектам
         </Link>
       </div>
@@ -111,17 +111,17 @@ export function ProjectFocusPage() {
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to={`/projects/${projectId}`} className="text-sm text-slate-500 hover:text-slate-300">
+          <Link to={`/projects/${projectId}`} className="near-link-muted">
             ← На доску
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-white">Режим фокуса</h1>
-          <p className="mt-1 text-sm text-slate-500">Следующая задача по дедлайну, приоритету, колонке и давности.</p>
+          <h1 className="near-h1 mt-2">Режим фокуса</h1>
+          <p className="near-lead mt-1">Следующая задача по дедлайну, приоритету, колонке и давности.</p>
         </div>
         <div className="shrink-0">
           <button
             type="button"
             onClick={() => navigate(`/projects/${projectId}`)}
-            className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+            className="near-btn-secondary"
           >
             Открыть доску
           </button>
@@ -129,12 +129,10 @@ export function ProjectFocusPage() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-          {error}
-        </p>
+        <p className="near-alert-warn mt-4">{error}</p>
       ) : null}
 
-      <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="near-card mt-8 rounded-2xl">
         {focusTask ? (
           <>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -162,7 +160,7 @@ export function ProjectFocusPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void move('prev')}
-                className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="near-btn-secondary"
               >
                 ← Назад
               </button>
@@ -170,7 +168,7 @@ export function ProjectFocusPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void move('next')}
-                className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                className="near-btn-primary"
               >
                 Дальше →
               </button>
@@ -178,7 +176,7 @@ export function ProjectFocusPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => void reloadFocusOnly()}
-                className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="near-btn-secondary"
               >
                 Обновить
               </button>

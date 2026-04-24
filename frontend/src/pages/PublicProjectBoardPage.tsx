@@ -72,9 +72,7 @@ export function PublicProjectBoardPage() {
   if (error) {
     return (
       <div>
-        <p className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-          {error}
-        </p>
+        <p className="near-alert-warn">{error}</p>
         <p className="mt-4 text-sm text-slate-500">
           Если вы владелец, включите публичный доступ в карточке проекта.
         </p>
@@ -86,17 +84,13 @@ export function PublicProjectBoardPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-300">
+          <Link to="/" className="near-link-muted">
             ← На главную
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold text-white">{projectName || 'Публичная доска'}</h1>
-            <span className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400">
-              {labelProjectKind(projectKind)}
-            </span>
-            <span className="rounded border border-emerald-900/50 bg-emerald-950/30 px-2 py-0.5 text-xs text-emerald-200">
-              Read-only
-            </span>
+            <h1 className="near-h1">{projectName || 'Публичная доска'}</h1>
+            <span className="near-badge">{labelProjectKind(projectKind)}</span>
+            <span className="near-badge border-emerald-900/50 bg-emerald-950/30 text-emerald-200">Read-only</span>
           </div>
           {projectDescription ? <p className="mt-2 max-w-2xl text-slate-400">{projectDescription}</p> : null}
           <p className="mt-3 max-w-2xl text-xs text-slate-600">
@@ -115,7 +109,7 @@ export function PublicProjectBoardPage() {
               onClick={() => setBoardViewPersist('kanban')}
               className={
                 boardView === 'kanban'
-                  ? 'rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white'
+                  ? 'rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-slate-950'
                   : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }
             >
@@ -126,7 +120,7 @@ export function PublicProjectBoardPage() {
               onClick={() => setBoardViewPersist('nodes')}
               className={
                 boardView === 'nodes'
-                  ? 'rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white'
+                  ? 'rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-slate-950'
                   : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }
             >

@@ -13,3 +13,92 @@ body {
 #root {
   @apply min-h-svh;
 }
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+}
+
+@layer components {
+  .near-app-bg {
+    @apply relative isolate overflow-hidden bg-slate-950 text-slate-100;
+  }
+
+  .near-app-bg::before {
+    content: '';
+    @apply pointer-events-none absolute inset-0 -z-10;
+    background:
+      radial-gradient(60rem 28rem at 50% -12rem, rgba(124, 58, 237, 0.24), rgba(2, 6, 23, 0) 60%),
+      radial-gradient(40rem 22rem at 10% 18rem, rgba(56, 189, 248, 0.14), rgba(2, 6, 23, 0) 60%),
+      linear-gradient(to bottom, rgba(2, 6, 23, 0.15), rgba(2, 6, 23, 1));
+  }
+
+  .near-surface {
+    @apply border border-slate-800/60 bg-slate-950/40 backdrop-blur;
+  }
+
+  .near-card {
+    @apply rounded-xl border border-slate-800/60 bg-slate-950/40 p-5 backdrop-blur;
+  }
+
+  .near-card-lg {
+    @apply rounded-2xl border border-slate-800/60 bg-slate-950/40 p-8 shadow-xl shadow-black/20 backdrop-blur;
+  }
+
+  .near-h1 {
+    @apply text-balance text-2xl font-semibold tracking-tight text-white sm:text-3xl;
+  }
+
+  .near-lead {
+    @apply mt-2 text-sm text-slate-400;
+  }
+
+  .near-link {
+    @apply text-emerald-300 hover:text-emerald-200;
+  }
+
+  .near-link-muted {
+    @apply text-sm text-slate-500 hover:text-slate-300;
+  }
+
+  .near-input {
+    @apply w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20;
+  }
+
+  .near-textarea {
+    @apply w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20;
+  }
+
+  .near-btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50;
+  }
+
+  .near-btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-900/40 disabled:opacity-50;
+  }
+
+  .near-btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg border border-red-900/60 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-950/40 disabled:opacity-50;
+  }
+
+  .near-badge {
+    @apply inline-flex items-center rounded-md border border-slate-800/70 bg-slate-950/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200;
+  }
+
+  .near-alert-warn {
+    @apply rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200;
+  }
+
+  .near-alert-ok {
+    @apply rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200;
+  }
+
+  .near-alert-error {
+    @apply rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-200;
+  }
+
+  .near-header {
+    @apply border-b border-slate-800/80 bg-slate-950/50 backdrop-blur-sm;
+  }
+}

@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
         if (req.mode === 'navigate') {
           return (await cache.match('/')) || (await cache.match('/index.html'))
         }
-        throw
+        throw new Error('Network request failed')
       }
     })(),
   )

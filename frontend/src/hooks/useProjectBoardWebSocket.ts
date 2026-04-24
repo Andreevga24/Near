@@ -63,7 +63,10 @@ export function useProjectBoardWebSocket(options: {
 }): void {
   const { enabled, projectId, token, onReloadTasks, onReloadLinks, onTaskDeleted, onProjectDeleted } = options
   const handlersRef = useRef({ onReloadTasks, onReloadLinks, onTaskDeleted, onProjectDeleted })
-  handlersRef.current = { onReloadTasks, onReloadLinks, onTaskDeleted, onProjectDeleted }
+
+  useEffect(() => {
+    handlersRef.current = { onReloadTasks, onReloadLinks, onTaskDeleted, onProjectDeleted }
+  }, [onReloadTasks, onReloadLinks, onTaskDeleted, onProjectDeleted])
 
   useEffect(() => {
     if (!enabled) return

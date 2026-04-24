@@ -21,7 +21,7 @@ export function ProfileSettingsPage() {
 
   if (!user) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-slate-400">
+      <div className="near-card px-4 py-8 text-center text-slate-400">
         Загрузка профиля…
       </div>
     )
@@ -78,35 +78,29 @@ export function ProfileSettingsPage() {
 
   return (
     <div>
-      <Link to="/projects/carousel" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link to="/projects/carousel" className="near-link-muted">
         ← Проекты
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-white">Профиль и настройки</h1>
-      <p className="mt-2 text-sm text-slate-500">
-        Управление email и паролем учётной записи Near.
-      </p>
+      <h1 className="near-h1 mt-2">Профиль и настройки</h1>
+      <p className="near-lead">Управление email и паролем учётной записи Near.</p>
 
       <div className="mt-4">
         <Link
           to="/settings/presets"
-          className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+          className="near-btn-secondary"
         >
           Редактор пресетов →
         </Link>
       </div>
 
       {msgOk ? (
-        <p className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
-          {msgOk}
-        </p>
+        <p className="near-alert-ok mt-4">{msgOk}</p>
       ) : null}
       {error ? (
-        <p className="mt-4 rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-          {error}
-        </p>
+        <p className="near-alert-warn mt-4">{error}</p>
       ) : null}
 
-      <section className="mt-10 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="near-card mt-10">
         <h2 className="text-sm font-medium text-slate-300">Текущий аккаунт</h2>
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex flex-wrap gap-2">
@@ -132,7 +126,7 @@ export function ProfileSettingsPage() {
         </dl>
       </section>
 
-      <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="near-card mt-8">
         <h2 className="text-sm font-medium text-slate-300">Сменить email</h2>
         <form onSubmit={saveEmail} className="mt-4 flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
           <label className="block flex-1 text-sm">
@@ -141,21 +135,21 @@ export function ProfileSettingsPage() {
               type="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+              className="near-input mt-1"
               placeholder={me.email}
             />
           </label>
           <button
             type="submit"
             disabled={savingEmail || !emailDirty}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40"
+            className="near-btn-primary disabled:opacity-40"
           >
             {savingEmail ? 'Сохранение…' : 'Сохранить email'}
           </button>
         </form>
       </section>
 
-      <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="near-card mt-8">
         <h2 className="text-sm font-medium text-slate-300">Сменить пароль</h2>
         <p className="mt-1 text-xs text-slate-500">Минимум 3 символа (для dev; в проде задайте политику сильнее).</p>
         <form onSubmit={savePassword} className="mt-4 max-w-md space-y-3">
@@ -166,7 +160,7 @@ export function ProfileSettingsPage() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+              className="near-input mt-1"
             />
           </label>
           <label className="block text-sm">
@@ -176,13 +170,13 @@ export function ProfileSettingsPage() {
               autoComplete="new-password"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+              className="near-input mt-1"
             />
           </label>
           <button
             type="submit"
             disabled={savingPass || !password}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40"
+            className="near-btn-primary disabled:opacity-40"
           >
             {savingPass ? 'Сохранение…' : 'Обновить пароль'}
           </button>

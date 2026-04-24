@@ -143,7 +143,7 @@ export function ProjectsCarouselPage() {
       ) : projects.length === 0 ? (
         <p className="mt-10 text-slate-500">
           Пока нет проектов —{' '}
-          <Link to="/projects" className="text-violet-400 hover:text-violet-300">
+          <Link to="/projects" className="near-link">
             создайте первый
           </Link>
           .
@@ -177,10 +177,10 @@ export function ProjectsCarouselPage() {
                 className="snap-center shrink-0 select-none"
                 style={{ width: 'min(88vw, 300px)' }}
               >
-                <div className="flex h-full min-h-[220px] flex-col rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg shadow-black/20">
+                <div className="flex h-full min-h-[220px] flex-col rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5 shadow-lg shadow-black/20 backdrop-blur">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <h2 className="text-lg font-semibold leading-snug text-white">{p.name}</h2>
-                    <span className="shrink-0 rounded bg-slate-600/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                    <span className="near-badge shrink-0 border-0 bg-slate-700/80 text-white">
                       {badgeProjectKind(p.kind)}
                     </span>
                   </div>
@@ -193,7 +193,7 @@ export function ProjectsCarouselPage() {
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">
                     <Link
                       to={`/projects/${p.id}`}
-                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
+                      className="near-btn-primary"
                     >
                       Доска
                     </Link>
@@ -218,7 +218,7 @@ export function ProjectsCarouselPage() {
                         <button
                           type="button"
                           onClick={() => void handleDisableShare(p.id)}
-                          className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                          className="near-btn-secondary"
                         >
                           Выключить
                         </button>
@@ -227,7 +227,7 @@ export function ProjectsCarouselPage() {
                       <button
                         type="button"
                         onClick={() => void handleEnableShare(p.id)}
-                        className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                        className="near-btn-secondary"
                         title="Включить и скопировать ссылку"
                       >
                         Публичная ссылка
@@ -236,7 +236,7 @@ export function ProjectsCarouselPage() {
                     <button
                       type="button"
                       onClick={() => void handleDelete(p.id, p.name)}
-                      className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-300 hover:bg-red-950/40"
+                      className="near-btn-danger"
                     >
                       Удалить
                     </button>

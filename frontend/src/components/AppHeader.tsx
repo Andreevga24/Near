@@ -14,9 +14,9 @@ export function AppHeader() {
   }
 
   return (
-    <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-sm">
+    <header className="near-header">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5">
-        <Link to="/" className="text-xs font-medium uppercase tracking-wider text-slate-500 hover:text-slate-400">
+        <Link to="/" className="text-xs font-medium uppercase tracking-wider text-slate-500 hover:text-slate-300">
           На главную
         </Link>
       </div>

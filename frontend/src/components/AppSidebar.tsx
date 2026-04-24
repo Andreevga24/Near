@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext'
 import { NEAR_PROJECTS_CHANGED, NEAR_TASKS_CHANGED } from '../nearEvents'
 
 const SIDEBAR_COLLAPSE_KEY = 'near_sidebar_collapsed'
-const SIDEBAR_BG = 'bg-[#2d3e33]'
+const SIDEBAR_BG = 'bg-slate-950/60'
 
 function initialsFromEmail(email: string): string {
   const local = (email.split('@')[0] ?? '?').trim()
@@ -299,9 +299,11 @@ export function AppSidebar() {
 
   return (
     <aside
-      className={`${SIDEBAR_BG} flex shrink-0 flex-col border-r border-black/20 text-white transition-[width] duration-200 ease-out ${asideWidth}`}
+      className={`${SIDEBAR_BG} flex shrink-0 flex-col border-r border-slate-800/80 text-white backdrop-blur transition-[width] duration-200 ease-out ${asideWidth}`}
     >
-      <div className={`flex items-center border-b border-white/10 ${collapsed ? 'justify-center px-2 py-3' : 'px-3 py-3'}`}>
+      <div
+        className={`flex items-center border-b border-slate-800/80 ${collapsed ? 'justify-center px-2 py-3' : 'px-3 py-3'}`}
+      >
         {!collapsed ? (
           <Link to="/" className="text-sm font-semibold tracking-tight text-white/95 hover:text-white">
             Near
@@ -317,7 +319,9 @@ export function AppSidebar() {
         )}
       </div>
 
-      <div className={`flex items-center gap-2 border-b border-white/10 py-2 ${collapsed ? 'flex-col px-1' : 'px-2'}`}>
+      <div
+        className={`flex items-center gap-2 border-b border-slate-800/80 py-2 ${collapsed ? 'flex-col px-1' : 'px-2'}`}
+      >
         <NavLink
           to="/settings"
           title={collapsed ? 'Мой профиль' : undefined}
@@ -325,7 +329,7 @@ export function AppSidebar() {
             `flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 hover:bg-white/[0.06] ${isActive ? 'bg-white/10' : ''} ${collapsed ? 'w-full justify-center' : 'flex-1'}`
           }
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-semibold text-slate-950">
             {initialsFromEmail(user.email)}
           </span>
           {!collapsed ? (
@@ -370,7 +374,7 @@ export function AppSidebar() {
                   <IconPanels className="opacity-90" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm text-white/90">Проекты</span>
-                <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs tabular-nums text-white/90">
+                <span className="rounded-md border border-slate-800/60 bg-slate-950/30 px-2 py-0.5 text-xs tabular-nums text-white/90">
                   {taskTotal}
                 </span>
               </NavLink>
@@ -417,7 +421,7 @@ export function AppSidebar() {
           title="Моя компания"
         />
 
-        <div className="my-2 border-t border-white/10" />
+        <div className="my-2 border-t border-slate-800/80" />
 
         <SidebarRow
           collapsed={collapsed}
@@ -428,7 +432,7 @@ export function AppSidebar() {
         />
       </div>
 
-      <div className="mt-auto space-y-0.5 border-t border-white/10 px-2 py-3">
+      <div className="mt-auto space-y-0.5 border-t border-slate-800/80 px-2 py-3">
         <SidebarRow
           collapsed={collapsed}
           icon={<IconLifebuoy />}
@@ -447,7 +451,7 @@ export function AppSidebar() {
             type="button"
             onClick={() => void syncNow()}
             disabled={!online || syncing || queueSize === 0}
-            className="mb-2 w-full rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
+            className="mb-2 w-full rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
           >
             {syncing ? 'Синхронизация…' : queueSize > 0 ? 'Синхронизировать сейчас' : 'Очередь пуста'}
           </button>
@@ -487,7 +491,7 @@ export function AppSidebar() {
         <button
           type="button"
           onClick={() => void logout()}
-          className={`mt-2 w-full rounded-lg border border-white/15 py-2 text-sm text-white/85 hover:bg-white/10 ${collapsed ? 'px-1' : 'px-3'}`}
+          className={`mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/30 py-2 text-sm text-white/85 hover:bg-white/10 ${collapsed ? 'px-1' : 'px-3'}`}
         >
           {collapsed ? '⎋' : 'Выйти'}
         </button>

@@ -319,7 +319,7 @@ export function ProjectBoardPage() {
     } finally {
       setSaving(false)
     }
-  }, [token, currentTask, commentDraft, refreshComments, logout])
+  }, [token, currentTask, commentDraft, refreshComments, refreshTimeline, logout])
 
   const addChecklistItem = useCallback(async () => {
     if (!token || !currentTask) return
@@ -618,7 +618,7 @@ export function ProjectBoardPage() {
     return (
       <div>
         <p className="text-slate-400">Проект не найден или у вас нет к нему доступа.</p>
-        <Link to="/projects/carousel" className="mt-4 inline-block text-violet-400 hover:text-violet-300">
+        <Link to="/projects/carousel" className="near-link mt-4 inline-block">
           ← К проектам
         </Link>
       </div>
@@ -629,19 +629,17 @@ export function ProjectBoardPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <Link to="/projects/carousel" className="text-sm text-slate-500 hover:text-slate-300">
+          <Link to="/projects/carousel" className="near-link-muted">
             ← Все проекты
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold text-white">{project.name}</h1>
-            <span className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400">
-              {labelProjectKind(projectKind)}
-            </span>
+            <h1 className="near-h1">{project.name}</h1>
+            <span className="near-badge">{labelProjectKind(projectKind)}</span>
           </div>
           {project.description ? (
             <p className="mt-2 max-w-2xl text-slate-400">{project.description}</p>
           ) : null}
-          <div className="mt-3 max-w-2xl rounded-xl border border-slate-800 bg-slate-900/30 p-3">
+          <div className="near-card mt-3 max-w-2xl p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Публичная ссылка</p>
@@ -659,7 +657,7 @@ export function ProjectBoardPage() {
                     <button
                       type="button"
                       onClick={() => void copyToClipboard(publicUrlForShareId(share.share_id!))}
-                      className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-950/40"
+                      className="near-btn-secondary border-emerald-900/60 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-200 hover:bg-emerald-950/40"
                       title="Скопировать ссылку"
                     >
                       Скопировать
@@ -668,7 +666,7 @@ export function ProjectBoardPage() {
                       type="button"
                       onClick={() => void disableShare()}
                       disabled={saving}
-                      className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                      className="near-btn-secondary px-3 py-2 text-xs disabled:opacity-50"
                     >
                       Выключить
                     </button>
@@ -676,7 +674,7 @@ export function ProjectBoardPage() {
                       to={`/public/${share.share_id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                      className="near-btn-secondary px-3 py-2 text-xs"
                       title="Открыть в новой вкладке"
                     >
                       Открыть
@@ -687,7 +685,7 @@ export function ProjectBoardPage() {
                     type="button"
                     onClick={() => void enableShare()}
                     disabled={saving}
-                    className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                    className="near-btn-secondary px-3 py-2 text-xs disabled:opacity-50"
                     title="Включить и скопировать ссылку"
                   >
                     Включить
@@ -716,7 +714,7 @@ export function ProjectBoardPage() {
               onClick={() => setBoardViewPersist('kanban')}
               className={
                 boardView === 'kanban'
-                  ? 'rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white'
+                  ? 'rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-slate-950'
                   : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }
             >
@@ -727,7 +725,7 @@ export function ProjectBoardPage() {
               onClick={() => setBoardViewPersist('nodes')}
               className={
                 boardView === 'nodes'
-                  ? 'rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white'
+                  ? 'rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-slate-950'
                   : 'rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }
             >
@@ -736,7 +734,7 @@ export function ProjectBoardPage() {
           </div>
           <Link
             to={`/projects/${projectId}/focus`}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            className="near-btn-secondary mt-2 w-full px-3 py-2 text-xs"
           >
             Режим фокуса
           </Link>
@@ -744,9 +742,7 @@ export function ProjectBoardPage() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-          {error}
-        </p>
+        <p className="near-alert-warn mt-4">{error}</p>
       ) : null}
 
       <form
@@ -758,7 +754,7 @@ export function ProjectBoardPage() {
           <input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+            className="near-input mt-1"
             placeholder="Что нужно сделать?"
             maxLength={500}
           />
@@ -766,7 +762,7 @@ export function ProjectBoardPage() {
         <button
           type="submit"
           disabled={saving || !newTitle.trim()}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+          className="near-btn-primary"
         >
           {saving
             ? 'Добавление…'

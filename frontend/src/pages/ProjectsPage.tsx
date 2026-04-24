@@ -54,28 +54,26 @@ export function ProjectsPage() {
     <div>
       <Link
         to="/projects/carousel"
-        className="text-sm text-violet-400 hover:text-violet-300"
+        className="near-link"
       >
         ← К карусели проектов
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-white">Новый проект</h1>
-      <p className="mt-2 text-slate-400">
+      <h1 className="near-h1 mt-2">Новый проект</h1>
+      <p className="near-lead">
         Выберите тип — от него зависят колонки на доске. Список и открытие досок — в{' '}
-        <Link to="/projects/carousel" className="text-violet-400 hover:text-violet-300">
+        <Link to="/projects/carousel" className="near-link">
           карусели проектов
         </Link>
         .
       </p>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-          {error}
-        </p>
+        <p className="near-alert-warn mt-4">{error}</p>
       ) : null}
 
       <form
         onSubmit={handleCreate}
-        className="mt-8 rounded-xl border border-slate-800 bg-slate-900/50 p-4"
+        className="near-card mt-8 p-4"
       >
         <h2 className="text-sm font-medium text-slate-300">Данные проекта</h2>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -84,7 +82,7 @@ export function ProjectsPage() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+              className="near-input mt-1"
               placeholder="Например, Маркетинг Q2"
               maxLength={255}
             />
@@ -92,7 +90,7 @@ export function ProjectsPage() {
           <button
             type="submit"
             disabled={saving || !name.trim()}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+            className="near-btn-primary"
           >
             {saving ? 'Создание…' : 'Создать'}
           </button>
@@ -103,7 +101,7 @@ export function ProjectsPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+            className="near-input mt-1"
             placeholder="Кратко о целях проекта"
           />
         </label>
@@ -112,7 +110,7 @@ export function ProjectsPage() {
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as ProjectKind)}
-            className="mt-1 w-full max-w-2xl rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-violet-500"
+            className="near-input mt-1 max-w-2xl"
           >
             {PROJECT_KIND_VALUES.map((k) => (
               <option key={k} value={k}>

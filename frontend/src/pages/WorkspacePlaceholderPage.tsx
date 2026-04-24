@@ -72,7 +72,7 @@ export function WorkspacePlaceholderPage() {
   if (!cfg) {
     return (
       <div>
-        <Link to="/projects/carousel" className="text-sm text-slate-500 hover:text-slate-300">
+        <Link to="/projects/carousel" className="near-link-muted">
           ← К проектам
         </Link>
         <h1 className="mt-2 text-xl font-semibold text-white">Раздел не найден</h1>
@@ -83,12 +83,12 @@ export function WorkspacePlaceholderPage() {
 
   return (
     <div>
-      <Link to="/projects/carousel" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link to="/projects/carousel" className="near-link-muted">
         ← К проектам
       </Link>
-      <h1 className="mt-3 text-2xl font-semibold text-white">{cfg.title}</h1>
+      <h1 className="near-h1 mt-3">{cfg.title}</h1>
       <p className="mt-3 max-w-2xl text-slate-300">{cfg.lead}</p>
-      <div className="mt-8 max-w-2xl space-y-4 rounded-xl border border-slate-800 bg-slate-900/40 p-6">
+      <div className="near-card mt-8 max-w-2xl space-y-4 p-6">
         {cfg.body.map((p, i) => (
           <p key={i} className="text-sm leading-relaxed text-slate-400">
             {p}

@@ -130,13 +130,13 @@ export function FeedPage() {
 
   return (
     <div>
-      <Link to="/projects/carousel" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link to="/projects/carousel" className="near-link-muted">
         ← К проектам
       </Link>
 
       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Лента событий</h1>
+          <h1 className="near-h1">Лента событий</h1>
           <p className="mt-2 max-w-2xl text-slate-400">
             MVP: события собираются из <span className="text-slate-200">updated_at / created_at</span> проектов и задач.
           </p>
@@ -145,7 +145,7 @@ export function FeedPage() {
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+            className="near-input max-w-[240px] text-sm"
           >
             <option value="all">Все проекты</option>
             {projects.map((p) => (
@@ -157,7 +157,7 @@ export function FeedPage() {
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+            className="near-btn-secondary"
           >
             Обновить
           </button>
@@ -165,9 +165,7 @@ export function FeedPage() {
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-          {error}
-        </p>
+        <p className="near-alert-warn mt-4">{error}</p>
       ) : null}
 
       {loading ? (
@@ -175,7 +173,7 @@ export function FeedPage() {
       ) : projects.length === 0 ? (
         <p className="mt-10 text-slate-500">
           Пока нет проектов —{' '}
-          <Link to="/projects" className="text-violet-400 hover:text-violet-300">
+          <Link to="/projects" className="near-link">
             создайте первый
           </Link>
           .
@@ -185,8 +183,8 @@ export function FeedPage() {
       ) : (
         <div className="mt-8 space-y-6">
           {grouped.map(([day, arr]) => (
-            <section key={day} className="rounded-xl border border-slate-800 bg-slate-900/40">
-              <div className="border-b border-white/10 px-5 py-3">
+            <section key={day} className="near-card p-0">
+              <div className="border-b border-slate-800/80 px-5 py-3">
                 <div className="text-sm font-semibold text-white/90">{day}</div>
               </div>
               <div className="divide-y divide-slate-800">
@@ -202,7 +200,7 @@ export function FeedPage() {
                     <div className="text-xs text-slate-500">{new Date(it.at).toLocaleTimeString()}</div>
                     <Link
                       to={it.href}
-                      className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+                      className="near-btn-secondary"
                     >
                       Открыть
                     </Link>
