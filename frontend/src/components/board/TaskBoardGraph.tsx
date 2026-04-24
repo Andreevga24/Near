@@ -70,9 +70,16 @@ function buildLinkStats(links: TaskLink[]) {
   return { inBlocks, outBlocks, relates }
 }
 
-function layoutNodes(kind: ProjectKind, hints: Record<string, string> | null | undefined, columns: string[], tasks: Task[], links: TaskLink[]): Node[] {
+function layoutNodes(
+  kind: ProjectKind,
+  hints: Record<string, string> | null | undefined,
+  columns: string[],
+  tasks: Task[],
+  links: TaskLink[],
+  showCheckpoints: boolean,
+): Node[] {
   const byStatus = tasksByStatusMap(tasks)
-  const stats = buildLinkStats(links)
+  const stats = showCheckpoints ? buildLinkStats(links) : null
   const nodes: Node[] = []
   columns.forEach((status, ci) => {
     const x = ci * COL_WIDTH
@@ -94,11 +101,14 @@ function layoutNodes(kind: ProjectKind, hints: Record<string, string> | null | u
         position: { x, y: HEADER_GAP + j * ROW_HEIGHT },
         data: {
           task,
-          badges: {
-            inBlocks: stats.inBlocks.get(task.id) ?? 0,
-            outBlocks: stats.outBlocks.get(task.id) ?? 0,
-            relates: stats.relates.get(task.id) ?? 0,
-          },
+          showCheckpoints,
+          badges: stats
+            ? {
+                inBlocks: stats.inBlocks.get(task.id) ?? 0,
+                outBlocks: stats.outBlocks.get(task.id) ?? 0,
+                relates: stats.relates.get(task.id) ?? 0,
+              }
+            : undefined,
         },
         draggable: true,
       }
@@ -128,6 +138,8 @@ export type TaskBoardGraphProps = {
   tasks: Task[]
   links: TaskLink[]
   readOnly?: boolean
+  /** Плашки связей (←blocks/→blocks/↔relates) показывать только при открытой панели задачи. */
+  showCheckpoints?: boolean
   onMovePrev: (task: Task) => void
   onMoveNext: (task: Task) => void
   onDelete: (task: Task) => void
@@ -144,6 +156,7 @@ function TaskBoardGraphInner({
   tasks,
   links,
   readOnly = false,
+  showCheckpoints = false,
   onMovePrev,
   onMoveNext,
   onDelete,
@@ -157,20 +170,22 @@ function TaskBoardGraphInner({
     extrasRef.current = { onMovePrev, onMoveNext, onDelete, onOpenTask }
   }, [onMovePrev, onMoveNext, onDelete, onOpenTask])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(layoutNodes(kind, hints, columns, tasks, links))
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
+    layoutNodes(kind, hints, columns, tasks, links, showCheckpoints),
+  )
 
   useEffect(() => {
-    const laidOut = layoutNodes(kind, hints, columns, tasks, links).map((n) => {
+    const laidOut = layoutNodes(kind, hints, columns, tasks, links, showCheckpoints).map((n) => {
       if (!readOnly) return n
       if (n.type === 'taskNode') return { ...n, draggable: false }
       return n
     })
     setNodes(laidOut)
-  }, [columns, tasks, links, kind, hints, readOnly, setNodes])
+  }, [columns, tasks, links, kind, hints, readOnly, showCheckpoints, setNodes])
 
   const relayout = useCallback(() => {
-    setNodes(layoutNodes(kind, hints, columns, tasks, links))
-  }, [kind, hints, columns, tasks, links, setNodes])
+    setNodes(layoutNodes(kind, hints, columns, tasks, links, showCheckpoints))
+  }, [kind, hints, columns, tasks, links, showCheckpoints, setNodes])
 
   const edges = useMemo<Edge[]>(() => {
     const known = new Set(tasks.map((t) => t.id))

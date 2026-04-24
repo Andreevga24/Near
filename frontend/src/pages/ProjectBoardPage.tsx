@@ -782,6 +782,7 @@ export function ProjectBoardPage() {
             columns={columns}
             tasks={tasks}
             links={links}
+            showCheckpoints={!!openTaskId}
             onMovePrev={(t) => void moveTaskBack(t)}
             onMoveNext={(t) => void moveTask(t)}
             onDelete={(t) => void handleDeleteTask(t)}
@@ -794,6 +795,7 @@ export function ProjectBoardPage() {
             columns={columns}
             tasks={tasks}
             links={links}
+            showCheckpoints={!!openTaskId}
             onMovePrev={(t) => void moveTaskBack(t)}
             onMoveNext={(t) => void moveTask(t)}
             onDelete={(t) => void handleDeleteTask(t)}

@@ -17,6 +17,11 @@ import { ProjectsCarouselPage } from './pages/ProjectsCarouselPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { PublicProjectBoardPage } from './pages/PublicProjectBoardPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { CompanyPage } from './pages/CompanyPage'
+import { MessengerPage } from './pages/MessengerPage'
+import { FeedPage } from './pages/FeedPage'
+import { ReportsPage } from './pages/ReportsPage'
+import { SupportPage } from './pages/SupportPage'
 import { WorkspacePlaceholderPage } from './pages/WorkspacePlaceholderPage'
 
 function App() {
@@ -41,6 +46,11 @@ function App() {
             <Route path="/projects/:projectId/focus" element={<ProjectFocusPage />} />
             <Route path="/settings" element={<ProfileSettingsPage />} />
             <Route path="/settings/presets" element={<PresetEditorPage />} />
+            <Route path="/workspace/company" element={<CompanyPage />} />
+            <Route path="/workspace/messenger" element={<MessengerPage />} />
+            <Route path="/workspace/feed" element={<FeedPage />} />
+            <Route path="/workspace/reports" element={<ReportsPage />} />
+            <Route path="/workspace/support" element={<SupportPage />} />
             <Route path="/workspace/:sectionId" element={<WorkspacePlaceholderPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

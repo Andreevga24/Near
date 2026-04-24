@@ -65,20 +65,6 @@ function IconMessage({ className }: { className?: string }) {
   )
 }
 
-function IconChats({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7 9h10M7 13h6M5 18l2-3H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-5l-5 3v-3H5Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 function IconClipboard({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -401,7 +387,7 @@ export function AppSidebar() {
             <div className="flex flex-col items-center gap-1">
               <NavLink
                 to="/projects/carousel"
-                title={`Проекты (${taskTotal})`}
+                title="Проекты"
                 className={({ isActive }) =>
                   `flex justify-center rounded-lg p-2 hover:bg-white/[0.06] ${isActive ? 'bg-white/10' : ''}`
                 }
@@ -439,14 +425,6 @@ export function AppSidebar() {
           label="Мессенджер"
           to="/workspace/messenger"
           title="Мессенджер"
-        />
-
-        <SidebarRow
-          collapsed={collapsed}
-          icon={<IconChats className="opacity-90" />}
-          label="Личные чаты"
-          to="/workspace/chats"
-          title="Личные чаты"
         />
       </div>
 
@@ -500,7 +478,7 @@ export function AppSidebar() {
           icon={<IconLifebuoy />}
           label="Поддержка, Новости"
           to="/workspace/support"
-          title={collapsed ? 'Поддержка и новости (+2)' : 'Поддержка и новости'}
+          title="Поддержка и новости"
           end={
             <span className="rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">+2</span>
           }

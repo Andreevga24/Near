@@ -9,12 +9,14 @@ export type TaskFlowNodeData = {
     outBlocks: number
     relates: number
   }
+  /** Показывать бейджи связей (←/→/↔). */
+  showCheckpoints?: boolean
 }
 
 export type TaskFlowRfNode = Node<TaskFlowNodeData, 'taskNode'>
 
 export function TaskFlowNode({ data }: NodeProps<TaskFlowRfNode>) {
-  const { task, badges } = data
+  const { task, badges, showCheckpoints } = data
   const { onMovePrev, onMoveNext, onDelete, onOpenTask } = useBoardFlowExtras()
 
   return (
@@ -67,7 +69,7 @@ export function TaskFlowNode({ data }: NodeProps<TaskFlowRfNode>) {
             />
           </svg>
         </button>
-        {badges ? (
+        {showCheckpoints && badges ? (
           <div className="nodrag mt-0.5 shrink-0 text-[10px] text-slate-500">
             {badges.inBlocks > 0 ? (
               <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5">←{badges.inBlocks}</span>

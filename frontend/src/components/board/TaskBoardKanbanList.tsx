@@ -16,6 +16,8 @@ export type TaskBoardKanbanListProps = {
   tasks: Task[]
   links: TaskLink[]
   readOnly?: boolean
+  /** Плашки связей (←blocks/→blocks/↔relates) показывать только при открытой панели задачи. */
+  showCheckpoints?: boolean
   onMovePrev: (task: Task) => void
   onMoveNext: (task: Task) => void
   onDelete: (task: Task) => void
@@ -45,6 +47,7 @@ export function TaskBoardKanbanList({
   tasks,
   links,
   readOnly = false,
+  showCheckpoints = false,
   onMovePrev,
   onMoveNext,
   onDelete,
@@ -137,32 +140,34 @@ export function TaskBoardKanbanList({
                         </>
                       )}
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {(() => {
-                        const a = stats.inBlocks.get(task.id) ?? 0
-                        const b = stats.outBlocks.get(task.id) ?? 0
-                        const r = stats.relates.get(task.id) ?? 0
-                        return (
-                          <>
-                            {a > 0 ? (
-                              <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">
-                                ←{a}
-                              </span>
-                            ) : null}
-                            {b > 0 ? (
-                              <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">
-                                →{b}
-                              </span>
-                            ) : null}
-                            {r > 0 ? (
-                              <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">
-                                ↔{r}
-                              </span>
-                            ) : null}
-                          </>
-                        )
-                      })()}
-                    </div>
+                    {showCheckpoints ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(() => {
+                          const a = stats.inBlocks.get(task.id) ?? 0
+                          const b = stats.outBlocks.get(task.id) ?? 0
+                          const r = stats.relates.get(task.id) ?? 0
+                          return (
+                            <>
+                              {a > 0 ? (
+                                <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                  ←{a}
+                                </span>
+                              ) : null}
+                              {b > 0 ? (
+                                <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                  →{b}
+                                </span>
+                              ) : null}
+                              {r > 0 ? (
+                                <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">
+                                  ↔{r}
+                                </span>
+                              ) : null}
+                            </>
+                          )
+                        })()}
+                      </div>
+                    ) : null}
                     {task.description ? (
                       <p className="mt-1 max-h-20 overflow-y-auto text-xs text-slate-500">{task.description}</p>
                     ) : null}
