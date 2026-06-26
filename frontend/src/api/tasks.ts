@@ -38,6 +38,21 @@ export function listArchivedTasks(token: string, projectId: string): Promise<Arc
   return apiJson<ArchivedTasksResponse>(`/tasks/archived?${q}`, token)
 }
 
+export function archivedTasksCount(token: string, projectId?: string): Promise<{ total: number }> {
+  const q = projectId ? new URLSearchParams({ project_id: projectId }) : ''
+  const path = q ? `/tasks/archived/count?${q}` : '/tasks/archived/count'
+  return apiJson<{ total: number }>(path, token)
+}
+
+export function purgeArchivedTasks(token: string, taskIds: string[]): Promise<void> {
+  return apiJson<void>('/tasks/archived/purge', token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task_ids: taskIds }),
+    parseJson: false,
+  })
+}
+
 export function createTask(
   token: string,
   body: {
@@ -116,5 +131,19 @@ export function deleteTask(token: string, taskId: string): Promise<void> {
   return apiJson<void>(`/tasks/${taskId}`, token, {
     method: 'DELETE',
     parseJson: false,
+  })
+}
+
+export function duplicateTask(token: string, taskId: string): Promise<Task> {
+  return apiJson<Task>(`/tasks/${taskId}/duplicate`, token, {
+    method: 'POST',
+  })
+}
+
+export function copyTaskToProject(token: string, taskId: string, projectId: string): Promise<Task> {
+  return apiJson<Task>(`/tasks/${taskId}/copy`, token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project_id: projectId }),
   })
 }

@@ -35,3 +35,13 @@ class ChecklistReorder(BaseModel):
     task_id: UUID
     ordered_item_ids: list[UUID]
 
+
+class ChecklistSummaryItem(BaseModel):
+    task_id: UUID
+    total: int
+    done: int
+
+
+class ChecklistSummaryRead(BaseModel):
+    items: list[ChecklistSummaryItem]
+

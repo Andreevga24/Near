@@ -2,6 +2,8 @@
 near.db
 near.db-wal
 near.db-shm
+test_integration.db
+ci_test.db
 
 # Python cache / env
 __pycache__/

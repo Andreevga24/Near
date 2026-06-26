@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom'
 import { ApiError, formatApiError } from '../api/auth'
 import { patchCurrentUser } from '../api/profile'
 import { useAuth } from '../context/AuthContext'
+import { useUiPreferences } from '../context/UiPreferencesContext'
 import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
 
 type UserProfileData = {
@@ -45,6 +46,7 @@ function formatPhoneInput(raw: string): string {
 
 export function ProfileSettingsPage() {
   const { token, user, refreshUser } = useAuth()
+  const { locale, theme, setLocale, setTheme, t } = useUiPreferences()
 
   const {
     data: profile,
@@ -167,6 +169,34 @@ export function ProfileSettingsPage() {
         </Link>
       </div>
 
+      <section className="near-card mt-8 max-w-xl">
+        <h2 className="text-sm font-semibold text-white/90">{t('settings.appearance')}</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="text-slate-500">{t('settings.language')}</span>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as 'ru' | 'en')}
+              className="near-input mt-1"
+            >
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-slate-500">{t('settings.theme')}</span>
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as 'dark' | 'light')}
+              className="near-input mt-1"
+            >
+              <option value="dark">{t('settings.themeDark')}</option>
+              <option value="light">{t('settings.themeLight')}</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section className="near-card">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -286,6 +316,34 @@ export function ProfileSettingsPage() {
           </dl>
         </section>
       </div>
+
+      <section className="near-card mt-8 max-w-xl">
+        <h2 className="text-sm font-semibold text-white/90">{t('settings.appearance')}</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="text-slate-500">{t('settings.language')}</span>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as 'ru' | 'en')}
+              className="near-input mt-1"
+            >
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-slate-500">{t('settings.theme')}</span>
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as 'dark' | 'light')}
+              className="near-input mt-1"
+            >
+              <option value="dark">{t('settings.themeDark')}</option>
+              <option value="light">{t('settings.themeLight')}</option>
+            </select>
+          </label>
+        </div>
+      </section>
 
       <section className="near-card mt-8">
         <h2 className="text-sm font-medium text-slate-300">Сменить email</h2>

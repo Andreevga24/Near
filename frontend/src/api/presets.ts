@@ -4,6 +4,7 @@ export type KindPreset = {
   kind: string
   column_hints: Record<string, string>
   default_checklists: Record<string, string[]>
+  starter_tasks: Array<{ title: string; status: string }>
 }
 
 export function fetchKindPreset(token: string, kind: string): Promise<KindPreset> {
@@ -13,7 +14,11 @@ export function fetchKindPreset(token: string, kind: string): Promise<KindPreset
 export function saveKindPreset(
   token: string,
   kind: string,
-  body: { column_hints: Record<string, string>; default_checklists: Record<string, string[]> },
+  body: {
+    column_hints: Record<string, string>
+    default_checklists: Record<string, string[]>
+    starter_tasks?: Array<{ title: string; status: string }>
+  },
 ): Promise<KindPreset> {
   return apiJson<KindPreset>(`/presets/${encodeURIComponent(kind)}`, token, {
     method: 'PUT',
@@ -22,3 +27,6 @@ export function saveKindPreset(
   })
 }
 
+export async function exportKindPreset(token: string, kind: string): Promise<KindPreset> {
+  return apiJson<KindPreset>(`/presets/${encodeURIComponent(kind)}/export`, token)
+}

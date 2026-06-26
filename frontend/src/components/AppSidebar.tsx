@@ -8,9 +8,10 @@ import { Link, NavLink } from 'react-router-dom'
 import { ApiError, formatApiError } from '../api/auth'
 import { drainOfflineQueue, getOfflineQueueSize, OFFLINE_QUEUE_CHANGED_EVENT } from '../api/offlineQueue'
 import { listProjects, type Project } from '../api/projects'
-import { listTasks } from '../api/tasks'
+import { archivedTasksCount, listTasks } from '../api/tasks'
 import { API_BASE_URL } from '../config'
 import { useAuth } from '../context/AuthContext'
+import { useUiPreferences } from '../context/UiPreferencesContext'
 import { NEAR_PROJECTS_CHANGED, NEAR_TASKS_CHANGED } from '../nearEvents'
 
 const SIDEBAR_COLLAPSE_KEY = 'near_sidebar_collapsed'
@@ -181,12 +182,14 @@ function SidebarRow({ icon, label, to, end, endPath, nested, collapsed, title }:
 }
 
 export function AppSidebar() {
+  const { t } = useUiPreferences()
   const { token, user, logout } = useAuth()
   const [collapsed, setCollapsed] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === '1' : false,
   )
   const [projects, setProjects] = useState<Project[]>([])
   const [taskTotal, setTaskTotal] = useState(0)
+  const [archiveTotal, setArchiveTotal] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tasksRefreshNonce, setTasksRefreshNonce] = useState(0)
   const [queueSize, setQueueSize] = useState(() => (typeof window !== 'undefined' ? getOfflineQueueSize() : 0))
@@ -242,16 +245,26 @@ export function AppSidebar() {
   useEffect(() => {
     if (!token || !projectIdsKey) {
       setTaskTotal(0)
+      setArchiveTotal(0)
       return
     }
     const ids = projectIdsKey.split(',').filter(Boolean)
     let cancelled = false
     ;(async () => {
       try {
-        const batches = await Promise.all(ids.map((id) => listTasks(token, id)))
-        if (!cancelled) setTaskTotal(batches.reduce((n, arr) => n + arr.length, 0))
+        const [batches, archived] = await Promise.all([
+          Promise.all(ids.map((id) => listTasks(token, id))),
+          archivedTasksCount(token),
+        ])
+        if (!cancelled) {
+          setTaskTotal(batches.reduce((n, arr) => n + arr.length, 0))
+          setArchiveTotal(archived.total)
+        }
       } catch {
-        if (!cancelled) setTaskTotal(0)
+        if (!cancelled) {
+          setTaskTotal(0)
+          setArchiveTotal(0)
+        }
       }
     })()
     return () => {
@@ -373,9 +386,22 @@ export function AppSidebar() {
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center text-white/90">
                   <IconPanels className="opacity-90" />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-white/90">Проекты</span>
-                <span className="rounded-md border border-slate-800/60 bg-slate-950/30 px-2 py-0.5 text-xs tabular-nums text-white/90">
-                  {taskTotal}
+                <span className="min-w-0 flex-1 truncate text-sm text-white/90">{t('nav.projects')}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <span
+                    className="rounded-md border border-slate-800/60 bg-slate-950/30 px-2 py-0.5 text-xs tabular-nums text-white/90"
+                    title="Активные задачи"
+                  >
+                    {taskTotal}
+                  </span>
+                  {archiveTotal > 0 ? (
+                    <span
+                      className="rounded-md border border-amber-900/50 bg-amber-950/30 px-2 py-0.5 text-xs tabular-nums text-amber-200/90"
+                      title="Задачи в архиве"
+                    >
+                      {archiveTotal}
+                    </span>
+                  ) : null}
                 </span>
               </NavLink>
               <Link
@@ -416,9 +442,9 @@ export function AppSidebar() {
         <SidebarRow
           collapsed={collapsed}
           icon={<IconBriefcase className="opacity-90" />}
-          label="Моя компания"
+          label={t('nav.company')}
           to="/workspace/company"
-          title="Моя компания"
+          title={t('nav.company')}
         />
 
         <div className="my-2 border-t border-slate-800/80" />
@@ -426,9 +452,9 @@ export function AppSidebar() {
         <SidebarRow
           collapsed={collapsed}
           icon={<IconMessage className="opacity-90" />}
-          label="Мессенджер"
+          label={t('nav.messenger')}
           to="/workspace/messenger"
-          title="Мессенджер"
+          title={t('nav.messenger')}
         />
       </div>
 
@@ -436,8 +462,8 @@ export function AppSidebar() {
         <SidebarRow
           collapsed={collapsed}
           icon={<IconLifebuoy />}
-          label={online ? 'Синхронизация' : 'Оффлайн'}
-          title={online ? 'Синхронизация (оффлайн-очередь)' : 'Оффлайн-очередь'}
+          label={online ? t('nav.sync') : t('nav.offline')}
+          title={online ? t('nav.sync') : t('nav.offline')}
           end={
             queueSize > 0 ? (
               <span className="rounded bg-amber-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -453,36 +479,36 @@ export function AppSidebar() {
             disabled={!online || syncing || queueSize === 0}
             className="mb-2 w-full rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
           >
-            {syncing ? 'Синхронизация…' : queueSize > 0 ? 'Синхронизировать сейчас' : 'Очередь пуста'}
+            {syncing ? t('nav.syncing') : queueSize > 0 ? t('nav.syncNow') : t('nav.queueEmpty')}
           </button>
         ) : null}
         <SidebarRow
           collapsed={collapsed}
           icon={<IconClipboard />}
-          label="Лента событий"
+          label={t('nav.feed')}
           to="/workspace/feed"
-          title="Лента событий"
+          title={t('nav.feed')}
         />
         <SidebarRow
           collapsed={collapsed}
           icon={<IconChart />}
-          label="Отчёты"
+          label={t('nav.reports')}
           to="/workspace/reports"
-          title="Отчёты"
+          title={t('nav.reports')}
         />
         <SidebarRow
           collapsed={collapsed}
           icon={<IconDoc />}
-          label="Лицензия и оплаты"
+          label={t('nav.billing')}
           to="/workspace/billing"
-          title="Лицензия и оплаты"
+          title={t('nav.billing')}
         />
         <SidebarRow
           collapsed={collapsed}
           icon={<IconLifebuoy />}
-          label="Поддержка, Новости"
+          label={t('nav.support')}
           to="/workspace/support"
-          title="Поддержка и новости"
+          title={t('nav.support')}
           end={
             <span className="rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">+2</span>
           }
@@ -493,7 +519,7 @@ export function AppSidebar() {
           onClick={() => void logout()}
           className={`mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/30 py-2 text-sm text-white/85 hover:bg-white/10 ${collapsed ? 'px-1' : 'px-3'}`}
         >
-          {collapsed ? '⎋' : 'Выйти'}
+          {collapsed ? '⎋' : t('nav.logout')}
         </button>
       </div>
     </aside>

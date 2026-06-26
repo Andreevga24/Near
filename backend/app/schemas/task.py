@@ -41,6 +41,24 @@ class ArchivedTasksRead(BaseModel):
     tasks: list[TaskRead]
 
 
+class ArchivedCountRead(BaseModel):
+    """Количество задач в архиве."""
+
+    total: int
+
+
+class ArchivedPurge(BaseModel):
+    """Безвозвратное удаление задач из архива."""
+
+    task_ids: list[UUID] = Field(..., min_length=1, max_length=200)
+
+
+class TaskCopy(BaseModel):
+    """Копирование задачи в другой проект."""
+
+    project_id: UUID
+
+
 class TaskCreate(BaseModel):
     """Создание задачи в указанном проекте (должен принадлежать текущему пользователю)."""
 

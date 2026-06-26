@@ -8,6 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { RequireAuth } from './components/RequireAuth'
 import { AuthProvider } from './context/AuthContext'
+import { UiPreferencesProvider } from './context/UiPreferencesContext'
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })))
 const PublicProjectBoardPage = lazy(() =>
@@ -29,6 +30,9 @@ const ProjectFocusPage = lazy(() =>
 const ProjectArchivePage = lazy(() =>
   import('./pages/ProjectArchivePage').then((m) => ({ default: m.ProjectArchivePage })),
 )
+const ProjectGanttPage = lazy(() =>
+  import('./pages/ProjectGanttPage').then((m) => ({ default: m.ProjectGanttPage })),
+)
 const ProfileSettingsPage = lazy(() =>
   import('./pages/ProfileSettingsPage').then((m) => ({ default: m.ProfileSettingsPage })),
 )
@@ -40,6 +44,9 @@ const MessengerPage = lazy(() => import('./pages/MessengerPage').then((m) => ({ 
 const FeedPage = lazy(() => import('./pages/FeedPage').then((m) => ({ default: m.FeedPage })))
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const SupportPage = lazy(() => import('./pages/SupportPage').then((m) => ({ default: m.SupportPage })))
+const AcceptInvitePage = lazy(() =>
+  import('./pages/AcceptInvitePage').then((m) => ({ default: m.AcceptInvitePage })),
+)
 const WorkspacePlaceholderPage = lazy(() =>
   import('./pages/WorkspacePlaceholderPage').then((m) => ({ default: m.WorkspacePlaceholderPage })),
 )
@@ -50,6 +57,7 @@ function AppFallback() {
 
 function App() {
   return (
+    <UiPreferencesProvider>
     <AuthProvider>
       <BrowserRouter>
         <Suspense fallback={<AppFallback />}>
@@ -58,6 +66,7 @@ function App() {
             <Route path="/public/:shareId" element={<PublicProjectBoardPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/invites/:token" element={<AcceptInvitePage />} />
             <Route
               element={
                 <RequireAuth>
@@ -70,6 +79,7 @@ function App() {
               <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
               <Route path="/projects/:projectId/focus" element={<ProjectFocusPage />} />
               <Route path="/projects/:projectId/archive" element={<ProjectArchivePage />} />
+              <Route path="/projects/:projectId/gantt" element={<ProjectGanttPage />} />
               <Route path="/settings" element={<ProfileSettingsPage />} />
               <Route path="/settings/presets" element={<PresetEditorPage />} />
               <Route path="/workspace/company" element={<CompanyPage />} />
@@ -84,6 +94,7 @@ function App() {
         </Suspense>
       </BrowserRouter>
     </AuthProvider>
+    </UiPreferencesProvider>
   )
 }
 

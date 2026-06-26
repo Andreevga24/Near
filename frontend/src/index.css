@@ -102,3 +102,55 @@ body {
     @apply border-b border-slate-800/80 bg-slate-950/50 backdrop-blur-sm;
   }
 }
+
+/* Светлая тема */
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+[data-theme='light'] body {
+  @apply bg-slate-100 text-slate-900;
+}
+
+[data-theme='light'] .near-app-bg {
+  @apply bg-slate-100 text-slate-900;
+}
+
+[data-theme='light'] .near-app-bg::before {
+  background:
+    radial-gradient(60rem 28rem at 50% -12rem, rgba(124, 58, 237, 0.08), rgba(248, 250, 252, 0) 60%),
+    radial-gradient(40rem 22rem at 10% 18rem, rgba(56, 189, 248, 0.06), rgba(248, 250, 252, 0) 60%),
+    linear-gradient(to bottom, rgba(248, 250, 252, 0.5), rgba(241, 245, 249, 1));
+}
+
+[data-theme='light'] .near-surface,
+[data-theme='light'] .near-card,
+[data-theme='light'] .near-card-lg {
+  @apply border-slate-200 bg-white/90 text-slate-900;
+}
+
+[data-theme='light'] .near-h1 {
+  @apply text-slate-900;
+}
+
+[data-theme='light'] .near-lead,
+[data-theme='light'] .near-link-muted {
+  @apply text-slate-600;
+}
+
+[data-theme='light'] .near-input,
+[data-theme='light'] .near-textarea {
+  @apply border-slate-300 bg-white text-slate-900;
+}
+
+[data-theme='light'] .near-btn-secondary {
+  @apply border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+}
+
+[data-theme='light'] .near-header {
+  @apply border-slate-200 bg-white/80;
+}
+
+[data-theme='light'] .near-badge {
+  @apply border-slate-200 bg-slate-100 text-slate-700;
+}

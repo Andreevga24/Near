@@ -117,6 +117,17 @@ export function useProjectBoardWebSocket(options: {
             emitTasksChanged()
             return
           }
+          if (msg.type === 'task_restored') {
+            void (async () => {
+              try {
+                await h.onReloadTasks()
+                emitTasksChanged()
+              } catch {
+                /* ошибки REST обрабатывает страница */
+              }
+            })()
+            return
+          }
           void (async () => {
             try {
               await h.onReloadTasks()

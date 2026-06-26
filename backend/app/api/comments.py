@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.access import get_owned_task_or_404
+from app.api.access import get_owned_task_or_404, get_task_or_404
+from app.constants.project_roles import ProjectRole
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
 from app.models.comment import Comment
@@ -55,7 +56,7 @@ async def list_comments(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> list[CommentRead]:
-    task = await get_owned_task_or_404(session, user, task_id)
+    task = await get_task_or_404(session, user, task_id, ProjectRole.VIEWER)
     result = await session.execute(
         select(Comment, User.email)
         .outerjoin(User, Comment.author_id == User.id)
@@ -77,7 +78,24 @@ async def create_comment(
     session.add(c)
     await session.commit()
     await session.refresh(c)
-    # комментарии показываются в таймлайне напрямую, поэтому activity не пишем, чтобы не дублировать
+    mentions = extract_mentions(payload.body)
+    mention_user_ids: list[UUID] = []
+    email_ids: set[UUID] = set()
+    for email in mentions:
+        res = await session.execute(select(User).where(User.email == email.lower()))
+        mentioned = res.scalar_one_or_none()
+        if mentioned is not None:
+            mention_user_ids.append(mentioned.id)
+            email_ids.add(mentioned.id)
+    await add_activity(
+        session,
+        task_id=c.task_id,
+        actor_id=user.id,
+        type="comment_created",
+        data={"body": c.body, "comment_id": str(c.id)},
+        extra_notify_user_ids=mention_user_ids,
+        email_user_ids=email_ids,
+    )
     return to_read(c, user.email)
 
 

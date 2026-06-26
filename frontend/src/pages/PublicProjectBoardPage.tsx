@@ -33,6 +33,8 @@ export function PublicProjectBoardPage() {
   const [projectKind, setProjectKind] = useState<ProjectKind>(DEFAULT_PROJECT_KIND)
   const [tasks, setTasks] = useState<Task[]>([])
   const [links, setLinks] = useState<TaskLink[]>([])
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([])
+  const [watermark, setWatermark] = useState('Near')
 
   const setBoardViewPersist = useCallback((mode: BoardViewMode) => {
     setBoardView(mode)
@@ -51,6 +53,8 @@ export function PublicProjectBoardPage() {
         setProjectKind(isProjectKind(data.project.kind) ? (data.project.kind as ProjectKind) : DEFAULT_PROJECT_KIND)
         setTasks(data.tasks as Task[])
         setLinks(data.links as TaskLink[])
+        setHiddenColumns(data.hidden_columns ?? [])
+        setWatermark(data.watermark ?? 'Near')
       } catch (e) {
         setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось открыть публичную доску')
       } finally {
@@ -59,7 +63,12 @@ export function PublicProjectBoardPage() {
     })()
   }, [shareId])
 
-  const columns = useMemo(() => orderedBoardColumns(projectKind, tasks), [projectKind, tasks])
+  const columns = useMemo(() => {
+    const all = orderedBoardColumns(projectKind, tasks)
+    if (hiddenColumns.length === 0) return all
+    const hidden = new Set(hiddenColumns)
+    return all.filter((c) => !hidden.has(c))
+  }, [projectKind, tasks, hiddenColumns])
 
   if (!shareId) {
     return <p className="text-slate-400">Не указана публичная ссылка.</p>
@@ -81,7 +90,14 @@ export function PublicProjectBoardPage() {
   }
 
   return (
-    <div>
+    <div className="relative">
+      <div
+        className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden opacity-[0.04]"
+        aria-hidden
+      >
+        <span className="rotate-[-24deg] text-[min(20vw,8rem)] font-bold tracking-widest text-white">{watermark}</span>
+      </div>
+      <div className="relative z-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <Link to="/" className="near-link-muted">
@@ -159,6 +175,7 @@ export function PublicProjectBoardPage() {
             onDeleteLink={async () => {}}
           />
         )}
+      </div>
       </div>
     </div>
   )

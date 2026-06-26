@@ -15,3 +15,14 @@ export function projectTasksWebSocketUrl(projectId: string, token: string): stri
   const wsProto = base.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${wsProto}//${base.host}/ws/${projectId}?${q}`
 }
+
+export function chatChannelWebSocketUrl(channelId: string, token: string): string {
+  const q = `token=${encodeURIComponent(token)}`
+  if (API_BASE_URL.startsWith('/')) {
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${wsProto}//${window.location.host}${API_BASE_URL}/ws/chat/${channelId}?${q}`
+  }
+  const base = new URL(API_BASE_URL)
+  const wsProto = base.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${wsProto}//${base.host}/ws/chat/${channelId}?${q}`
+}

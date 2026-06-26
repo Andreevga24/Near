@@ -24,6 +24,7 @@ import '@xyflow/react/dist/style.css'
 
 import type { Task } from '../../api/tasks'
 import type { TaskLink, TaskLinkType } from '../../api/taskLinks'
+import type { ChecklistSummary } from '../../api/checklist'
 import { hintForStatus, labelStatusColumn } from '../../constants/boardPresets'
 import type { ProjectKind } from '../../constants/projectKinds'
 import { BoardFlowExtrasProvider } from './boardFlowContext'
@@ -77,6 +78,9 @@ function layoutNodes(
   tasks: Task[],
   links: TaskLink[],
   showCheckpoints: boolean,
+  checklistSummary?: ChecklistSummary,
+  currentUserId?: string | null,
+  pendingTaskIds?: Set<string>,
 ): Node[] {
   const byStatus = tasksByStatusMap(tasks)
   const stats = showCheckpoints ? buildLinkStats(links) : null
@@ -102,6 +106,9 @@ function layoutNodes(
         data: {
           task,
           showCheckpoints,
+          checklistSummary,
+          currentUserId,
+          pending: pendingTaskIds?.has(task.id),
           badges: stats
             ? {
                 inBlocks: stats.inBlocks.get(task.id) ?? 0,
@@ -140,6 +147,9 @@ export type TaskBoardGraphProps = {
   readOnly?: boolean
   /** Плашки связей (←blocks/→blocks/↔relates) показывать только при открытой панели задачи. */
   showCheckpoints?: boolean
+  checklistSummary?: ChecklistSummary
+  currentUserId?: string | null
+  pendingTaskIds?: Set<string>
   onMovePrev: (task: Task) => void
   onMoveNext: (task: Task) => void
   onDelete: (task: Task) => void
@@ -157,6 +167,9 @@ function TaskBoardGraphInner({
   links,
   readOnly = false,
   showCheckpoints = false,
+  checklistSummary,
+  currentUserId,
+  pendingTaskIds,
   onMovePrev,
   onMoveNext,
   onDelete,
@@ -171,21 +184,31 @@ function TaskBoardGraphInner({
   }, [onMovePrev, onMoveNext, onDelete, onOpenTask])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
-    layoutNodes(kind, hints, columns, tasks, links, showCheckpoints),
+    layoutNodes(kind, hints, columns, tasks, links, showCheckpoints, checklistSummary, currentUserId, pendingTaskIds),
   )
 
   useEffect(() => {
-    const laidOut = layoutNodes(kind, hints, columns, tasks, links, showCheckpoints).map((n) => {
+    const laidOut = layoutNodes(
+      kind,
+      hints,
+      columns,
+      tasks,
+      links,
+      showCheckpoints,
+      checklistSummary,
+      currentUserId,
+      pendingTaskIds,
+    ).map((n) => {
       if (!readOnly) return n
       if (n.type === 'taskNode') return { ...n, draggable: false }
       return n
     })
     setNodes(laidOut)
-  }, [columns, tasks, links, kind, hints, readOnly, showCheckpoints, setNodes])
+  }, [columns, tasks, links, kind, hints, readOnly, showCheckpoints, checklistSummary, currentUserId, pendingTaskIds, setNodes])
 
   const relayout = useCallback(() => {
-    setNodes(layoutNodes(kind, hints, columns, tasks, links, showCheckpoints))
-  }, [kind, hints, columns, tasks, links, showCheckpoints, setNodes])
+    setNodes(layoutNodes(kind, hints, columns, tasks, links, showCheckpoints, checklistSummary, currentUserId, pendingTaskIds))
+  }, [kind, hints, columns, tasks, links, showCheckpoints, checklistSummary, currentUserId, pendingTaskIds, setNodes])
 
   const edges = useMemo<Edge[]>(() => {
     const known = new Set(tasks.map((t) => t.id))
@@ -202,8 +225,8 @@ function TaskBoardGraphInner({
           source: l.from_task_id,
           target: l.to_task_id,
           type: 'smoothstep',
-          markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#94a3b8' },
-          style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#f59e0b' },
+          style: { stroke: '#f59e0b', strokeWidth: 2 },
         })
         continue
       }
@@ -219,7 +242,7 @@ function TaskBoardGraphInner({
         source: a,
         target: b,
         type: 'smoothstep',
-        style: { stroke: '#64748b', strokeWidth: 1.25, strokeDasharray: '6 4' },
+        style: { stroke: '#38bdf8', strokeWidth: 1.5, strokeDasharray: '6 4' },
       })
     }
 
@@ -293,6 +316,7 @@ function TaskBoardGraphInner({
   )
 
   const layoutKey = `${columns.join('|')}:${tasks.map((t) => `${t.id}:${t.status}`).join(',')}`
+  const showMiniMap = tasks.length >= 12
 
   return (
     <BoardFlowExtrasProvider getExtras={() => extrasRef.current}>
@@ -316,12 +340,14 @@ function TaskBoardGraphInner({
           <FitViewOnLayout layoutKey={layoutKey} />
           <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#334155" />
           <Controls className="!border-slate-700 !bg-slate-900 [&_button]:!border-slate-600 [&_button]:!bg-slate-800 [&_button]:!fill-slate-200" />
-          <MiniMap
-            className="!border-slate-700 !bg-slate-900"
-            nodeStrokeWidth={2}
-            nodeColor={(n) => (n.type === 'columnLabel' ? '#475569' : '#5b21b6')}
-            maskColor="rgb(15 23 42 / 0.75)"
-          />
+          {showMiniMap ? (
+            <MiniMap
+              className="!border-slate-700 !bg-slate-900"
+              nodeStrokeWidth={2}
+              nodeColor={(n) => (n.type === 'columnLabel' ? '#475569' : '#5b21b6')}
+              maskColor="rgb(15 23 42 / 0.75)"
+            />
+          ) : null}
         </ReactFlow>
       </div>
     </BoardFlowExtrasProvider>

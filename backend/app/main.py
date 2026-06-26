@@ -28,6 +28,16 @@ from app.api.checklist import router as checklist_router
 from app.api.presets import router as presets_router
 from app.api.public import router as public_router
 from app.api.workspace import router as workspace_router
+from app.api.project_members import router as project_members_router
+from app.api.feed import router as feed_router
+from app.api.notifications import router as notifications_router
+from app.api.reports import router as reports_router
+from app.api.time import router as time_router
+from app.api.gantt import router as gantt_router
+from app.api.support import router as support_router
+from app.api.messenger import router as messenger_router
+from app.api.user_lookup import router as user_lookup_router
+from app.api.search import router as search_router
 from app.ws.router import router as ws_router
 from app.auth.manager import auth_backend, current_active_user, fastapi_users
 from app.db.session import engine
@@ -135,6 +145,16 @@ app.include_router(checklist_router)
 app.include_router(presets_router)
 app.include_router(public_router)
 app.include_router(workspace_router)
+app.include_router(project_members_router)
+app.include_router(feed_router)
+app.include_router(notifications_router)
+app.include_router(reports_router)
+app.include_router(time_router)
+app.include_router(gantt_router)
+app.include_router(support_router)
+app.include_router(messenger_router)
+app.include_router(user_lookup_router)
+app.include_router(search_router)
 app.include_router(ws_router)
 
 

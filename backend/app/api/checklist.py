@@ -7,12 +7,14 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.access import get_owned_task_or_404
+from app.api.access import get_editable_project_or_404, get_owned_task_or_404, get_readable_project_or_404, get_task_or_404
+from app.constants.project_roles import ProjectRole
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
+from app.models.task import Task
 from app.models.task_checklist_item import TaskChecklistItem
 from app.models.user import User
 from app.schemas.checklist import (
@@ -20,6 +22,8 @@ from app.schemas.checklist import (
     ChecklistItemRead,
     ChecklistItemUpdate,
     ChecklistReorder,
+    ChecklistSummaryItem,
+    ChecklistSummaryRead,
 )
 from app.services.timeline import add_activity
 
@@ -33,13 +37,42 @@ async def list_checklist_items(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> list[TaskChecklistItem]:
-    task = await get_owned_task_or_404(session, user, task_id)
+    task = await get_task_or_404(session, user, task_id, ProjectRole.VIEWER)
     res = await session.execute(
         select(TaskChecklistItem)
         .where(TaskChecklistItem.task_id == task.id)
         .order_by(TaskChecklistItem.position.asc(), TaskChecklistItem.created_at.asc()),
     )
     return list(res.scalars().all())
+
+
+@router.get("/summary", response_model=ChecklistSummaryRead)
+async def checklist_summary(
+    project_id: UUID = Query(...),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> ChecklistSummaryRead:
+    """Сводка чеклистов по активным задачам проекта (для бейджей на доске)."""
+    await get_readable_project_or_404(session, user, project_id)
+    res = await session.execute(
+        select(
+            TaskChecklistItem.task_id,
+            func.count(TaskChecklistItem.id).label("total"),
+            func.sum(case((TaskChecklistItem.is_done.is_(True), 1), else_=0)).label("done"),
+        )
+        .join(Task, Task.id == TaskChecklistItem.task_id)
+        .where(Task.project_id == project_id, Task.closed_at.is_(None))
+        .group_by(TaskChecklistItem.task_id),
+    )
+    items = [
+        ChecklistSummaryItem(
+            task_id=row.task_id,
+            total=int(row.total or 0),
+            done=int(row.done or 0),
+        )
+        for row in res.all()
+    ]
+    return ChecklistSummaryRead(items=items)
 
 
 @router.post("", response_model=ChecklistItemRead, status_code=status.HTTP_201_CREATED)

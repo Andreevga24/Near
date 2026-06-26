@@ -1,8 +1,9 @@
 """
 Публичный read-only доступ к доске по share_id.
-
-Важно: доступ только если проект явно опубликован (is_public=true) и share_id совпадает.
 """
+
+import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -17,6 +18,18 @@ from app.schemas.task import TaskRead
 from app.schemas.task_link import TaskLinkRead
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+
+def _parse_hidden_columns(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        v = json.loads(raw)
+        if isinstance(v, list):
+            return [str(x) for x in v if isinstance(x, str) and x.strip()]
+    except json.JSONDecodeError:
+        pass
+    return []
 
 
 @router.get("/{share_id}", response_model=PublicProjectBoardRead)
@@ -34,6 +47,15 @@ async def read_public_project_board(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Не найдено")
 
+    if project.share_expires_at is not None:
+        expires = project.share_expires_at
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires < datetime.now(timezone.utc):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Срок ссылки истёк")
+
+    hidden = _parse_hidden_columns(project.public_hidden_columns)
+
     t_res = await session.execute(
         select(Task)
         .where(Task.project_id == project.id, Task.closed_at.is_(None))
@@ -45,9 +67,15 @@ async def read_public_project_board(
         .order_by(TaskLink.type.asc(), TaskLink.created_at.asc()),
     )
 
+    tasks = [TaskRead.model_validate(t) for t in list(t_res.scalars().all())]
+    if hidden:
+        hidden_set = set(hidden)
+        tasks = [t for t in tasks if t.status not in hidden_set]
+
     return PublicProjectBoardRead(
         project=PublicProjectRead.model_validate(project),
-        tasks=[TaskRead.model_validate(t) for t in list(t_res.scalars().all())],
+        tasks=tasks,
         links=[TaskLinkRead.model_validate(l) for l in list(l_res.scalars().all())],
+        hidden_columns=hidden,
+        watermark="Near",
     )
-

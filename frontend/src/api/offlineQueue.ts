@@ -8,6 +8,9 @@ type QueuedRequest = {
 
 const STORAGE_KEY = 'near_offline_queue_v1'
 export const OFFLINE_QUEUE_CHANGED_EVENT = 'near_offline_queue_changed'
+const BROADCAST_CHANNEL = 'near_offline_queue_v1'
+
+const TASK_PATH_RE = /^\/tasks\/([^/]+)(?:\/(close|restore))?$/
 
 function readQueue(): QueuedRequest[] {
   try {
@@ -20,13 +23,21 @@ function readQueue(): QueuedRequest[] {
   }
 }
 
+function notifyQueueChanged(items: QueuedRequest[]) {
+  window.dispatchEvent(new Event(OFFLINE_QUEUE_CHANGED_EVENT))
+  try {
+    new BroadcastChannel(BROADCAST_CHANNEL).postMessage({ type: 'changed', size: items.length })
+  } catch {
+    /* unsupported */
+  }
+}
+
 function writeQueue(items: QueuedRequest[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-  window.dispatchEvent(new Event(OFFLINE_QUEUE_CHANGED_EVENT))
+  notifyQueueChanged(items)
 }
 
 function uid(): string {
-  // good enough for client-side queue ids
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
@@ -39,12 +50,50 @@ export function enqueueOfflineRequest(req: Omit<QueuedRequest, 'id' | 'created_a
   }
   q.push(item)
   writeQueue(q)
-  // writeQueue dispatches change event
   return item.id
 }
 
 export function getOfflineQueueSize(): number {
   return readQueue().length
+}
+
+/** ID задач с несинхронизированными изменениями в очереди. */
+export function getPendingTaskIds(): Set<string> {
+  const ids = new Set<string>()
+  for (const item of readQueue()) {
+    const m = item.path.match(TASK_PATH_RE)
+    if (m?.[1]) ids.add(m[1])
+    if (item.path === '/checklist-items/reorder' && item.body && typeof item.body === 'object') {
+      const taskId = (item.body as { task_id?: string }).task_id
+      if (taskId) ids.add(taskId)
+    }
+    if (item.path.startsWith('/tasks/') && item.method === 'PUT') {
+      const parts = item.path.split('/')
+      if (parts[2]) ids.add(parts[2])
+    }
+  }
+  return ids
+}
+
+export function subscribeOfflineQueue(onChange: () => void): () => void {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) onChange()
+  }
+  const onLocal = () => onChange()
+  let bc: BroadcastChannel | null = null
+  try {
+    bc = new BroadcastChannel(BROADCAST_CHANNEL)
+    bc.onmessage = () => onChange()
+  } catch {
+    /* unsupported */
+  }
+  window.addEventListener('storage', onStorage)
+  window.addEventListener(OFFLINE_QUEUE_CHANGED_EVENT, onLocal)
+  return () => {
+    window.removeEventListener('storage', onStorage)
+    window.removeEventListener(OFFLINE_QUEUE_CHANGED_EVENT, onLocal)
+    bc?.close()
+  }
 }
 
 export async function drainOfflineQueue(options: {
@@ -69,13 +118,11 @@ export async function drainOfflineQueue(options: {
         body: item.body != null ? JSON.stringify(item.body) : undefined,
       })
       if (!res.ok) {
-        // If auth is invalid or request is bad, keep it (user might need to login / inspect later).
         remaining.push(item)
         continue
       }
       processed += 1
     } catch {
-      // still offline / network error
       remaining.push(item)
     }
   }
@@ -83,4 +130,3 @@ export async function drainOfflineQueue(options: {
   writeQueue(remaining)
   return { processed, remaining: remaining.length }
 }
-

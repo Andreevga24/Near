@@ -6,8 +6,10 @@ import { useMemo } from 'react'
 
 import type { Task } from '../../api/tasks'
 import type { TaskLink } from '../../api/taskLinks'
+import type { ChecklistSummary } from '../../api/checklist'
 import { hintForStatus, labelStatusColumn } from '../../constants/boardPresets'
 import type { ProjectKind } from '../../constants/projectKinds'
+import { TaskMetaBadges } from './TaskMetaBadges'
 
 export type TaskBoardKanbanListProps = {
   kind: ProjectKind
@@ -18,6 +20,9 @@ export type TaskBoardKanbanListProps = {
   readOnly?: boolean
   /** Плашки связей (←blocks/→blocks/↔relates) показывать только при открытой панели задачи. */
   showCheckpoints?: boolean
+  checklistSummary?: ChecklistSummary
+  currentUserId?: string | null
+  pendingTaskIds?: Set<string>
   onMovePrev: (task: Task) => void
   onMoveNext: (task: Task) => void
   onDelete: (task: Task) => void
@@ -48,6 +53,9 @@ export function TaskBoardKanbanList({
   links,
   readOnly = false,
   showCheckpoints = false,
+  checklistSummary,
+  currentUserId,
+  pendingTaskIds,
   onMovePrev,
   onMoveNext,
   onDelete,
@@ -88,7 +96,13 @@ export function TaskBoardKanbanList({
             <ul className="flex max-h-[min(70vh,640px)] flex-col gap-2 overflow-y-auto p-2">
               {list.map((task) => (
                 <li key={task.id}>
-                  <article className="rounded-lg border border-slate-700 bg-slate-950/90 p-2.5 shadow-sm">
+                  <article className="relative rounded-lg border border-slate-700 bg-slate-950/90 p-2.5 shadow-sm">
+                    {pendingTaskIds?.has(task.id) ? (
+                      <span
+                        className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-400"
+                        title="Ожидает синхронизации"
+                      />
+                    ) : null}
                     <div className="flex items-start justify-between gap-2">
                       {readOnly ? (
                         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-snug text-slate-100">
@@ -140,6 +154,11 @@ export function TaskBoardKanbanList({
                         </>
                       )}
                     </div>
+                    <TaskMetaBadges
+                      task={task}
+                      checklistSummary={checklistSummary}
+                      currentUserId={currentUserId}
+                    />
                     {showCheckpoints ? (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {(() => {

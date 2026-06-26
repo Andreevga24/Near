@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
+import { listColleagues, type Colleague } from '../api/projectMembers'
+import { resolveEmails } from '../api/userLookup'
 import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
 
 type CompanyMemberRole = 'owner' | 'admin' | 'member' | 'viewer'
@@ -13,6 +15,7 @@ type CompanyMember = {
   position: string
   role: CompanyMemberRole
   addedAt: string
+  userId?: string | null
 }
 
 type CompanyProfile = {
@@ -73,6 +76,7 @@ function safeParseCompany(raw: string | null): CompanyProfile | null {
                 ? m.role
                 : 'member') as CompanyMemberRole,
               addedAt: typeof m.addedAt === 'string' ? m.addedAt : new Date().toISOString(),
+              userId: typeof m.userId === 'string' ? m.userId : null,
             }))
             .filter((m) => m.email.length > 0)
         : DEFAULT_COMPANY.members,
@@ -84,7 +88,7 @@ function safeParseCompany(raw: string | null): CompanyProfile | null {
 }
 
 export function CompanyPage() {
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const legacyStorageKey = useMemo(() => (user ? `near_company_v1_${user.id}` : null), [user])
 
   const {
@@ -109,6 +113,37 @@ export function CompanyPage() {
   const [invitePosition, setInvitePosition] = useState('')
   const [inviteRole, setInviteRole] = useState<CompanyMemberRole>('member')
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [colleagues, setColleagues] = useState<Colleague[]>([])
+
+  useEffect(() => {
+    if (!token) return
+    void listColleagues(token)
+      .then(setColleagues)
+      .catch(() => setColleagues([]))
+  }, [token])
+
+  const memberEmailsKey = useMemo(
+    () => company.members.map((m) => normalizeEmail(m.email)).join('\0'),
+    [company.members],
+  )
+
+  useEffect(() => {
+    if (!token || loading) return
+    const emails = memberEmailsKey.split('\0').filter(Boolean)
+    if (emails.length === 0) return
+    void resolveEmails(token, emails)
+      .then((resolved) => {
+        const byEmail = new Map(resolved.map((r) => [r.email.toLowerCase(), r.user_id]))
+        setCompany((c) => ({
+          ...c,
+          members: c.members.map((m) => {
+            const uid = byEmail.get(normalizeEmail(m.email))
+            return uid ? { ...m, userId: uid } : m
+          }),
+        }))
+      })
+      .catch(() => {})
+  }, [token, loading, memberEmailsKey, setCompany])
 
   useEffect(() => {
     if (loading || !user || company.members.length > 0) return
@@ -138,6 +173,7 @@ export function CompanyPage() {
       setInviteError('Этот email уже есть в списке')
       return
     }
+    const colleague = colleagues.find((c) => normalizeEmail(c.email) === email)
     setCompany({
       ...company,
       members: [
@@ -149,6 +185,7 @@ export function CompanyPage() {
           position: invitePosition.trim(),
           role: inviteRole,
           addedAt: new Date().toISOString(),
+          userId: colleague?.id ?? null,
         },
       ],
     })
@@ -262,6 +299,28 @@ export function CompanyPage() {
           </div>
 
           <div className="mt-4 space-y-2">
+            {colleagues.length > 0 ? (
+              <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
+                <p className="text-xs text-slate-500">
+                  Коллеги из ваших проектов (зарегистрированы в Near):
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {colleagues.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setInviteEmail(c.email)
+                        setInviteFullName('')
+                      }}
+                      className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                    >
+                      {c.email}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-2 sm:grid-cols-2">
               <input
                 value={inviteFullName}
@@ -322,7 +381,14 @@ export function CompanyPage() {
                       className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
                     />
                   </div>
-                  <div className="truncate text-xs text-slate-500">{m.email}</div>
+                  <div className="truncate text-xs text-slate-500">
+                    {m.email}
+                    {m.userId ? (
+                      <span className="ml-2 rounded-full bg-emerald-900/50 px-2 py-0.5 text-[10px] text-emerald-300">
+                        в Near
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="text-xs text-slate-600">
                     Добавлен: {new Date(m.addedAt).toLocaleDateString()}
                   </div>

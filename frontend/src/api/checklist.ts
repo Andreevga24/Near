@@ -14,6 +14,22 @@ export function listChecklistItems(token: string, taskId: string): Promise<Check
   return apiJson<ChecklistItem[]>(`/checklist-items?${q}`, token)
 }
 
+export type ChecklistSummary = Record<string, { total: number; done: number }>
+
+export function checklistSummary(token: string, projectId: string): Promise<ChecklistSummary> {
+  const q = new URLSearchParams({ project_id: projectId })
+  return apiJson<{ items: { task_id: string; total: number; done: number }[] }>(
+    `/checklist-items/summary?${q}`,
+    token,
+  ).then((res) => {
+    const map: ChecklistSummary = {}
+    for (const row of res.items) {
+      map[row.task_id] = { total: row.total, done: row.done }
+    }
+    return map
+  })
+}
+
 export function createChecklistItem(
   token: string,
   body: { task_id: string; text: string; position?: number | null },

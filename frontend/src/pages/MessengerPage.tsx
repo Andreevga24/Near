@@ -1,168 +1,155 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ApiError, formatApiError } from '../api/auth'
+import {
+  createChatChannel,
+  listChatChannels,
+  listChatMessages,
+  postChatMessage,
+  type ChatChannel,
+  type ChatMessage,
+} from '../api/messenger'
+import { listProjects, type Project } from '../api/projects'
+import { chatChannelWebSocketUrl } from '../api/realtime'
 import { useAuth } from '../context/AuthContext'
-import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
-
-type Channel = {
-  id: string
-  title: string
-  createdAt: string
-}
-
-type Message = {
-  id: string
-  channelId: string
-  authorEmail: string
-  text: string
-  createdAt: string
-}
-
-type MessengerState = {
-  channels: Channel[]
-  messages: Message[]
-  updatedAt: string
-}
-
-const DEFAULT_STATE: MessengerState = {
-  channels: [
-    { id: 'general', title: 'general', createdAt: new Date(0).toISOString() },
-    { id: 'team', title: 'team', createdAt: new Date(0).toISOString() },
-  ],
-  messages: [],
-  updatedAt: new Date(0).toISOString(),
-}
-
-function makeId(): string {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
-}
 
 function normalizeTitle(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ')
 }
 
-function safeParseState(raw: string | null): MessengerState | null {
-  if (!raw) return null
-  try {
-    const v = JSON.parse(raw) as Partial<MessengerState> | null
-    if (!v || typeof v !== 'object') return null
-    return {
-      channels: Array.isArray(v.channels)
-        ? v.channels
-            .filter((c): c is Channel => !!c && typeof c === 'object')
-            .map((c) => ({
-              id: typeof c.id === 'string' ? c.id : makeId(),
-              title: typeof c.title === 'string' ? c.title : 'channel',
-              createdAt: typeof c.createdAt === 'string' ? c.createdAt : new Date().toISOString(),
-            }))
-        : DEFAULT_STATE.channels,
-      messages: Array.isArray(v.messages)
-        ? v.messages
-            .filter((m): m is Message => !!m && typeof m === 'object')
-            .map((m) => ({
-              id: typeof m.id === 'string' ? m.id : makeId(),
-              channelId: typeof m.channelId === 'string' ? m.channelId : 'general',
-              authorEmail: typeof m.authorEmail === 'string' ? m.authorEmail : 'unknown@example.local',
-              text: typeof m.text === 'string' ? m.text : '',
-              createdAt: typeof m.createdAt === 'string' ? m.createdAt : new Date().toISOString(),
-            }))
-            .filter((m) => m.text.length > 0)
-        : DEFAULT_STATE.messages,
-      updatedAt: typeof v.updatedAt === 'string' ? v.updatedAt : DEFAULT_STATE.updatedAt,
-    }
-  } catch {
-    return null
-  }
-}
-
 export function MessengerPage() {
-  const { user } = useAuth()
-  const legacyStorageKey = useMemo(() => (user ? `near_messenger_v1_${user.id}` : null), [user])
+  const { user, token, logout } = useAuth()
 
-  const {
-    data: state,
-    setData: setState,
-    loading,
-    dirty,
-    savedAt,
-    error: storeError,
-    setError,
-    saving,
-    save,
-    reset,
-  } = useWorkspaceStore<MessengerState>({
-    storeKey: 'messenger',
-    defaultValue: DEFAULT_STATE,
-    legacyStorageKey,
-    parseLegacy: safeParseState,
-  })
-
-  const [activeChannelId, setActiveChannelId] = useState<string>('general')
+  const [channels, setChannels] = useState<ChatChannel[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
   const [newChannelTitle, setNewChannelTitle] = useState('')
+  const [newChannelProjectId, setNewChannelProjectId] = useState('')
   const [composerText, setComposerText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
 
   const listRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    if (loading) return
-    setActiveChannelId((prev) => {
-      if (state.channels.some((c) => c.id === prev)) return prev
-      return state.channels[0]?.id ?? 'general'
-    })
-  }, [loading, state.channels])
+  const loadChannels = useCallback(async () => {
+    if (!token) return
+    const [chs, ps] = await Promise.all([listChatChannels(token), listProjects(token)])
+    setChannels(chs)
+    setProjects(ps)
+    if (chs.length === 0) {
+      const general = await createChatChannel(token, { title: 'general' })
+      setChannels([general])
+      setActiveChannelId(general.id)
+    } else {
+      setActiveChannelId((prev) => (prev && chs.some((c) => c.id === prev) ? prev : chs[0].id))
+    }
+  }, [token])
 
-  const messagesForActive = useMemo(
-    () => state.messages.filter((m) => m.channelId === activeChannelId).slice(-200),
-    [state.messages, activeChannelId],
+  const loadMessages = useCallback(
+    async (channelId: string) => {
+      if (!token) return
+      const msgs = await listChatMessages(token, channelId)
+      setMessages(msgs)
+    },
+    [token],
   )
+
+  useEffect(() => {
+    if (!token) return
+    setLoading(true)
+    setError(null)
+    void loadChannels()
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          logout()
+          return
+        }
+        setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось загрузить мессенджер')
+      })
+      .finally(() => setLoading(false))
+  }, [token, loadChannels, logout])
+
+  useEffect(() => {
+    if (!token || !activeChannelId) return
+    void loadMessages(activeChannelId).catch(() => setMessages([]))
+  }, [token, activeChannelId, loadMessages])
+
+  useEffect(() => {
+    if (!token || !activeChannelId) return
+    const url = chatChannelWebSocketUrl(activeChannelId, token)
+    const socket = new WebSocket(url)
+    socket.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data as string) as { type?: string; message?: ChatMessage }
+        if (data.type === 'chat_message' && data.message) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === data.message!.id)) return prev
+            return [...prev, data.message!]
+          })
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return () => socket.close()
+  }, [token, activeChannelId])
 
   useEffect(() => {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [messagesForActive.length, activeChannelId])
+  }, [messages.length, activeChannelId])
 
-  const createChannel = () => {
+  const activeChannel = useMemo(
+    () => channels.find((c) => c.id === activeChannelId) ?? channels[0],
+    [channels, activeChannelId],
+  )
+
+  const createChannel = async () => {
+    if (!token) return
     setError(null)
     const title = normalizeTitle(newChannelTitle)
     if (title.length < 2) {
       setError('Название канала слишком короткое')
       return
     }
-    if (state.channels.some((c) => c.title.toLowerCase() === title.toLowerCase())) {
+    if (channels.some((c) => c.title.toLowerCase() === title.toLowerCase())) {
       setError('Канал с таким названием уже есть')
       return
     }
-    const id = makeId()
-    setState({
-      ...state,
-      channels: [...state.channels, { id, title, createdAt: new Date().toISOString() }],
-    })
-    setActiveChannelId(id)
-    setNewChannelTitle('')
+    try {
+      const ch = await createChatChannel(token, {
+        title,
+        project_id: newChannelProjectId || undefined,
+      })
+      setChannels((prev) => [...prev, ch])
+      setActiveChannelId(ch.id)
+      setNewChannelTitle('')
+      setNewChannelProjectId('')
+    } catch (e) {
+      setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось создать канал')
+    }
   }
 
-  const sendMessage = () => {
-    setError(null)
+  const sendMessage = async () => {
+    if (!token || !activeChannelId || !user) return
     const text = composerText.trim()
-    if (!text || !user) return
-    setState({
-      ...state,
-      messages: [
-        ...state.messages,
-        {
-          id: makeId(),
-          channelId: activeChannelId,
-          authorEmail: user.email,
-          text,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    })
-    setComposerText('')
+    if (!text) return
+    setSending(true)
+    setError(null)
+    try {
+      const msg = await postChatMessage(token, activeChannelId, text)
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]))
+      setComposerText('')
+    } catch (e) {
+      setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось отправить')
+    } finally {
+      setSending(false)
+    }
   }
-
-  const activeChannel = state.channels.find((c) => c.id === activeChannelId) ?? state.channels[0]
 
   if (loading) {
     return <p className="text-slate-500">Загрузка…</p>
@@ -174,99 +161,93 @@ export function MessengerPage() {
         ← К проектам
       </Link>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Мессенджер</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Каналы и сообщения сохраняются на сервере для вашей учётной записи.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void reset()}
-            disabled={saving}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
-          >
-            Сбросить
-          </button>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={!dirty || saving}
-            className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
-          >
-            {saving ? 'Сохранение…' : 'Сохранить'}
-          </button>
-        </div>
+      <div className="mt-3">
+        <h1 className="text-2xl font-semibold text-white">Мессенджер</h1>
+        <p className="mt-1 text-sm text-slate-400">
+          Каналы в базе данных; личные и по проекту. Сообщения в реальном времени через WebSocket.
+        </p>
       </div>
 
-      {savedAt ? <p className="mt-2 text-xs text-slate-500">Сохранено: {new Date(savedAt).toLocaleString()}</p> : null}
-      {storeError ? <p className="mt-2 text-xs text-amber-200/90">{storeError}</p> : null}
+      {error ? <p className="mt-2 text-xs text-amber-200/90">{error}</p> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px,1fr]">
         <aside className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white/90">Каналы</h2>
-            <span className="text-xs text-slate-500">{state.channels.length}</span>
+            <span className="text-xs text-slate-500">{channels.length}</span>
           </div>
 
           <div className="mt-3 space-y-1">
-            {state.channels.map((c) => {
+            {channels.map((c) => {
               const active = c.id === activeChannelId
               return (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => setActiveChannelId(c.id)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  className={`flex w-full flex-col rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     active ? 'bg-white/10 text-white' : 'text-white/80 hover:bg-white/[0.06]'
                   }`}
                 >
                   <span className="truncate">#{c.title}</span>
+                  {c.project_id ? (
+                    <span className="truncate text-[10px] text-slate-500">проект</span>
+                  ) : null}
                 </button>
               )
             })}
           </div>
 
-          <div className="mt-4 border-t border-white/10 pt-4">
-            <div className="grid grid-cols-[1fr,auto] gap-2">
-              <input
-                value={newChannelTitle}
-                onChange={(e) => setNewChannelTitle(e.target.value)}
-                placeholder="новый канал"
-                className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-              />
-              <button
-                type="button"
-                onClick={createChannel}
-                className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10"
-              >
-                +
-              </button>
-            </div>
+          <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+            <input
+              value={newChannelTitle}
+              onChange={(e) => setNewChannelTitle(e.target.value)}
+              placeholder="новый канал"
+              className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+            />
+            <select
+              value={newChannelProjectId}
+              onChange={(e) => setNewChannelProjectId(e.target.value)}
+              className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+            >
+              <option value="">Личный канал</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => void createChannel()}
+              className="w-full rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10"
+            >
+              Создать канал
+            </button>
           </div>
         </aside>
 
         <section className="flex min-h-[520px] flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-900/40">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-white/90">#{activeChannel?.title ?? 'channel'}</div>
-              <div className="mt-0.5 text-xs text-slate-500">{messagesForActive.length} сообщений</div>
+              <div className="truncate text-sm font-semibold text-white/90">
+                #{activeChannel?.title ?? 'channel'}
+              </div>
+              <div className="mt-0.5 text-xs text-slate-500">{messages.length} сообщений</div>
             </div>
           </div>
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-auto px-4 py-4">
-            {messagesForActive.length === 0 ? (
+            {messages.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/20 px-4 py-6 text-center text-sm text-slate-400">
                 Пока пусто. Напиши первое сообщение.
               </div>
             ) : null}
-            {messagesForActive.map((m) => (
+            {messages.map((m) => (
               <div key={m.id} className="rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="truncate text-xs font-semibold text-white/85">{m.authorEmail}</div>
-                  <div className="text-[11px] text-slate-500">{new Date(m.createdAt).toLocaleString()}</div>
+                  <div className="truncate text-xs font-semibold text-white/85">{m.author_email}</div>
+                  <div className="text-[11px] text-slate-500">{new Date(m.created_at).toLocaleString()}</div>
                 </div>
                 <div className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-200/90">{m.text}</div>
               </div>
@@ -280,23 +261,25 @@ export function MessengerPage() {
                 onChange={(e) => setComposerText(e.target.value)}
                 rows={2}
                 placeholder="Сообщение…"
-                className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+                disabled={sending}
+                className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60 disabled:opacity-50"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault()
-                    sendMessage()
+                    void sendMessage()
                   }
                 }}
               />
               <button
                 type="button"
-                onClick={sendMessage}
-                className="shrink-0 rounded-lg bg-emerald-600/90 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600"
+                onClick={() => void sendMessage()}
+                disabled={sending}
+                className="shrink-0 rounded-lg bg-emerald-600/90 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
               >
                 Отправить
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-slate-600">Совет: Ctrl+Enter для отправки. Не забудьте нажать «Сохранить».</p>
+            <p className="mt-2 text-[11px] text-slate-600">Ctrl+Enter для отправки</p>
           </div>
         </section>
       </div>

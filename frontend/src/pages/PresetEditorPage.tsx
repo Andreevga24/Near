@@ -20,6 +20,7 @@ export function PresetEditorPage() {
 
   const [columnHintsText, setColumnHintsText] = useState('{}')
   const [checklistsText, setChecklistsText] = useState('{}')
+  const [starterTasksText, setStarterTasksText] = useState('[]')
 
   const kindLabel = useMemo(() => PROJECT_KIND_LABEL[kind], [kind])
 
@@ -33,6 +34,7 @@ export function PresetEditorPage() {
         const p = await fetchKindPreset(token, kind)
         setColumnHintsText(prettyJson(p.column_hints ?? {}))
         setChecklistsText(prettyJson(p.default_checklists ?? {}))
+        setStarterTasksText(prettyJson(p.starter_tasks ?? []))
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           logout()
@@ -53,9 +55,11 @@ export function PresetEditorPage() {
     try {
       const column_hints = JSON.parse(columnHintsText || '{}') as KindPreset['column_hints']
       const default_checklists = JSON.parse(checklistsText || '{}') as KindPreset['default_checklists']
-      const saved = await saveKindPreset(token, kind, { column_hints, default_checklists })
+      const starter_tasks = JSON.parse(starterTasksText || '[]') as KindPreset['starter_tasks']
+      const saved = await saveKindPreset(token, kind, { column_hints, default_checklists, starter_tasks })
       setColumnHintsText(prettyJson(saved.column_hints ?? {}))
       setChecklistsText(prettyJson(saved.default_checklists ?? {}))
+      setStarterTasksText(prettyJson(saved.starter_tasks ?? []))
       setOk('Сохранено.')
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
@@ -66,6 +70,40 @@ export function PresetEditorPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function onExport() {
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          {
+            kind,
+            column_hints: JSON.parse(columnHintsText || '{}'),
+            default_checklists: JSON.parse(checklistsText || '{}'),
+            starter_tasks: JSON.parse(starterTasksText || '[]'),
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: 'application/json' },
+    )
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `near-preset-${kind}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function onImportFile(file: File) {
+    void file.text().then((text) => {
+      const v = JSON.parse(text) as Partial<KindPreset>
+      if (v.column_hints) setColumnHintsText(prettyJson(v.column_hints))
+      if (v.default_checklists) setChecklistsText(prettyJson(v.default_checklists))
+      if (v.starter_tasks) setStarterTasksText(prettyJson(v.starter_tasks))
+      setOk('Импортировано в форму (нажмите «Сохранить»).')
+    })
   }
 
   return (
@@ -131,7 +169,18 @@ export function PresetEditorPage() {
         </section>
       </div>
 
-      <div className="mt-6 flex items-center gap-2">
+      <section className="mt-6 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+        <h2 className="text-sm font-medium text-slate-300">Стартовые задачи шаблона</h2>
+        <p className="mt-1 text-xs text-slate-500">JSON: массив {'{ title, status }'}</p>
+        <textarea
+          value={starterTasksText}
+          onChange={(e) => setStarterTasksText(e.target.value)}
+          className="mt-3 h-40 w-full resize-none rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-500"
+          spellCheck={false}
+        />
+      </section>
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => void onSave()}
@@ -140,6 +189,22 @@ export function PresetEditorPage() {
         >
           {saving ? 'Сохранение…' : 'Сохранить'}
         </button>
+        <button type="button" onClick={onExport} className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
+          Экспорт JSON
+        </button>
+        <label className="cursor-pointer rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
+          Импорт JSON
+          <input
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) onImportFile(f)
+              e.target.value = ''
+            }}
+          />
+        </label>
         {loading ? <p className="text-sm text-slate-500">Загрузка…</p> : null}
       </div>
     </div>

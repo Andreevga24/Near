@@ -34,6 +34,8 @@ export type PublicBoardResponse = {
     type: string
     created_at: string
   }>
+  hidden_columns?: string[]
+  watermark?: string
 }
 
 async function safeJson(res: Response): Promise<unknown> {

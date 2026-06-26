@@ -25,5 +25,15 @@ class Settings(BaseSettings):
     # Срок хранения закрытых задач в архиве (дней), после — удаление из БД
     TASK_ARCHIVE_RETENTION_DAYS: int = 30
 
+    # Email-уведомления (опционально; без SMTP — только in-app + лог)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    NOTIFICATION_EMAIL_FROM: str = ""
+
+    # Напоминание о дедлайне за N часов (0 — выключено)
+    DUE_REMINDER_HOURS: int = 24
+
 
 settings = Settings()

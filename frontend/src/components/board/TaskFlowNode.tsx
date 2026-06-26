@@ -1,6 +1,8 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import type { Task } from '../../api/tasks'
+import type { ChecklistSummary } from '../../api/checklist'
 import { useBoardFlowExtras } from './boardFlowContext'
+import { TaskMetaBadges } from './TaskMetaBadges'
 
 export type TaskFlowNodeData = {
   task: Task
@@ -11,16 +13,25 @@ export type TaskFlowNodeData = {
   }
   /** Показывать бейджи связей (←/→/↔). */
   showCheckpoints?: boolean
+  checklistSummary?: ChecklistSummary
+  currentUserId?: string | null
+  pending?: boolean
 }
 
 export type TaskFlowRfNode = Node<TaskFlowNodeData, 'taskNode'>
 
 export function TaskFlowNode({ data }: NodeProps<TaskFlowRfNode>) {
-  const { task, badges, showCheckpoints } = data
+  const { task, badges, showCheckpoints, checklistSummary, currentUserId, pending } = data
   const { onMovePrev, onMoveNext, onDelete, onOpenTask } = useBoardFlowExtras()
 
   return (
     <div className="relative w-[250px] rounded-lg border border-slate-700 bg-slate-950/95 p-2.5 text-left shadow-lg">
+      {pending ? (
+        <span
+          className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-slate-950"
+          title="Ожидает синхронизации"
+        />
+      ) : null}
       <Handle
         type="target"
         position={Position.Left}
@@ -36,6 +47,11 @@ export function TaskFlowNode({ data }: NodeProps<TaskFlowRfNode>) {
           <button type="button" onClick={() => onOpenTask(task)} className="text-left">
             <p className="truncate text-sm font-medium leading-snug text-slate-100 hover:text-white">{task.title}</p>
           </button>
+          <TaskMetaBadges
+            task={task}
+            checklistSummary={checklistSummary}
+            currentUserId={currentUserId}
+          />
         </div>
         <button
           type="button"

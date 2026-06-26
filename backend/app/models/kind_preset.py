@@ -24,6 +24,7 @@ class KindPreset(Base):
     # JSON strings
     column_hints_json: Mapped[str] = mapped_column(Text, default="{}")
     default_checklists_json: Mapped[str] = mapped_column(Text, default="{}")
+    starter_tasks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

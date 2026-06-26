@@ -5,7 +5,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.project_kinds import ProjectKind
 from app.schemas.task import TaskRead
@@ -27,9 +27,24 @@ class PublicProjectBoardRead(BaseModel):
     project: PublicProjectRead
     tasks: list[TaskRead]
     links: list[TaskLinkRead]
+    hidden_columns: list[str] = []
+    watermark: str = "Near"
 
 
 class ProjectShareRead(BaseModel):
     enabled: bool
     share_id: str | None
+    expires_at: datetime | None = None
+    hidden_columns: list[str] = []
+
+
+class ProjectShareEnable(BaseModel):
+    expires_in_days: int | None = Field(default=None, ge=1, le=365)
+    hidden_columns: list[str] | None = None
+
+
+class ProjectShareUpdate(BaseModel):
+    expires_in_days: int | None = Field(default=None, ge=1, le=365)
+    hidden_columns: list[str] | None = None
+    clear_expiry: bool = False
 

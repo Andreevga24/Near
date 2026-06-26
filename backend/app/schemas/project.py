@@ -22,6 +22,10 @@ class ProjectRead(BaseModel):
     kind: ProjectKind
     created_at: datetime
     updated_at: datetime
+    my_role: str | None = Field(
+        default=None,
+        description="Роль текущего пользователя: owner, editor, viewer",
+    )
 
 
 class ProjectCreate(BaseModel):

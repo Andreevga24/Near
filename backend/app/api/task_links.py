@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.access import get_owned_project_or_404, get_owned_task_or_404
+from app.api.access import get_editable_project_or_404, get_owned_task_or_404, get_readable_project_or_404
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
 from app.models.task_link import TaskLink
@@ -35,7 +35,7 @@ async def list_task_links(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> list[TaskLink]:
-    await get_owned_project_or_404(session, user, project_id)
+    await get_readable_project_or_404(session, user, project_id)
     result = await session.execute(
         select(TaskLink)
         .where(TaskLink.project_id == project_id)
@@ -57,7 +57,7 @@ async def create_task_link(
     if _is_self_link(payload):
         raise HTTPException(status_code=400, detail="Нельзя создавать связь задачи с самой собой")
 
-    await get_owned_project_or_404(session, user, payload.project_id)
+    await get_editable_project_or_404(session, user, payload.project_id)
     from_task = await get_owned_task_or_404(session, user, payload.from_task_id)
     to_task = await get_owned_task_or_404(session, user, payload.to_task_id)
     if from_task.project_id != payload.project_id or to_task.project_id != payload.project_id:
@@ -119,7 +119,7 @@ async def delete_task_link(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> None:
-    await get_owned_project_or_404(session, user, project_id)
+    await get_readable_project_or_404(session, user, project_id)
     await get_owned_task_or_404(session, user, from_task_id)
     await get_owned_task_or_404(session, user, to_task_id)
 

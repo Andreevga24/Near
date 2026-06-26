@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.access import get_owned_task_or_404
+from app.api.access import get_task_or_404
+from app.constants.project_roles import ProjectRole
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
 from app.models.comment import Comment
@@ -37,13 +38,13 @@ async def list_task_timeline(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> list[TimelineEventRead]:
-    task = await get_owned_task_or_404(session, user, task_id)
+    task = await get_task_or_404(session, user, task_id, ProjectRole.VIEWER)
 
     # активности (снимки), newest first
     r1 = await session.execute(
         select(TaskActivity, User.email)
         .outerjoin(User, TaskActivity.actor_id == User.id)
-        .where(TaskActivity.task_id == task.id)
+        .where(TaskActivity.task_id == task.id, TaskActivity.type != "comment_created")
         .order_by(TaskActivity.created_at.desc()),
     )
     activities = [

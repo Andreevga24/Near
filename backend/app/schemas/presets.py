@@ -9,9 +9,11 @@ class KindPresetRead(BaseModel):
     kind: str
     column_hints: dict[str, str] = {}
     default_checklists: dict[str, list[str]] = {}
+    starter_tasks: list[dict[str, str]] = Field(default_factory=list)
 
 
 class KindPresetUpsert(BaseModel):
     column_hints: dict[str, str] = Field(default_factory=dict)
     default_checklists: dict[str, list[str]] = Field(default_factory=dict)
+    starter_tasks: list[dict[str, str]] | None = None
 

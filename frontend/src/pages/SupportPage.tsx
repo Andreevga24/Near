@@ -1,105 +1,96 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ApiError, formatApiError } from '../api/auth'
+import {
+  addSupportReply,
+  createSupportTicket,
+  deleteSupportTicket,
+  getSupportTicket,
+  listSupportTickets,
+  type SupportTicket,
+  type SupportTicketDetail,
+  type SupportTicketStatus,
+} from '../api/support'
 import { useAuth } from '../context/AuthContext'
-import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
-
-type TicketStatus = 'sent' | 'draft'
-
-type Ticket = {
-  id: string
-  subject: string
-  message: string
-  email: string
-  createdAt: string
-  status: TicketStatus
-}
-
-type SupportState = {
-  tickets: Ticket[]
-  updatedAt: string
-}
 
 const NEWS: Array<{ title: string; body: string; at: string }> = [
+  {
+    title: 'V0.0.5',
+    at: '2026-06-26T00:00:00.000Z',
+    body: 'Тикеты поддержки в БД, мессенджер с WebSocket, отчёты с архивом и velocity.',
+  },
   {
     title: 'V0.0.4',
     at: '2026-06-01T00:00:00.000Z',
     body: 'Workspace-разделы (компания, мессенджер, поддержка) сохраняются на сервере.',
   },
-  {
-    title: 'V0.0.3',
-    at: '2026-04-24T00:00:00.000Z',
-    body: 'Связи задач, режим фокуса, панель задачи, офлайн-очередь (MVP), публичная read-only доска.',
-  },
 ]
 
-const DEFAULT_STATE: SupportState = {
-  tickets: [],
-  updatedAt: new Date(0).toISOString(),
-}
-
-function makeId(): string {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
-}
-
-function safeParseState(raw: string | null): SupportState | null {
-  if (!raw) return null
-  try {
-    const v = JSON.parse(raw) as Partial<SupportState> | null
-    if (!v || typeof v !== 'object') return null
-    return {
-      tickets: Array.isArray(v.tickets)
-        ? v.tickets
-            .filter((t): t is Ticket => !!t && typeof t === 'object')
-            .map((t) => ({
-              id: typeof t.id === 'string' ? t.id : makeId(),
-              subject: typeof t.subject === 'string' ? t.subject : '',
-              message: typeof t.message === 'string' ? t.message : '',
-              email: typeof t.email === 'string' ? t.email : 'unknown@example.local',
-              createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
-              status: (t.status === 'sent' || t.status === 'draft' ? t.status : 'sent') as TicketStatus,
-            }))
-            .filter((t) => t.subject.length > 0 || t.message.length > 0)
-        : DEFAULT_STATE.tickets,
-      updatedAt: typeof v.updatedAt === 'string' ? v.updatedAt : DEFAULT_STATE.updatedAt,
-    }
-  } catch {
-    return null
+function statusLabel(status: SupportTicketStatus): string {
+  switch (status) {
+    case 'draft':
+      return 'Черновик'
+    case 'open':
+      return 'Открыт'
+    case 'in_progress':
+      return 'В работе'
+    case 'resolved':
+      return 'Решён'
+    case 'closed':
+      return 'Закрыт'
   }
 }
 
 export function SupportPage() {
-  const { user } = useAuth()
-  const legacyStorageKey = useMemo(() => (user ? `near_support_v1_${user.id}` : null), [user])
+  const { user, token, logout } = useAuth()
 
-  const {
-    data: state,
-    setData: setState,
-    loading,
-    dirty,
-    savedAt,
-    error: storeError,
-    setError,
-    saving,
-    save,
-    reset,
-  } = useWorkspaceStore<SupportState>({
-    storeKey: 'support',
-    defaultValue: DEFAULT_STATE,
-    legacyStorageKey,
-    parseLegacy: safeParseState,
-  })
-
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<SupportTicketDetail | null>(null)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
+  const [replyText, setReplyText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const createTicket = (status: TicketStatus) => {
+  const loadTickets = useCallback(async () => {
+    if (!token) return
+    const list = await listSupportTickets(token)
+    setTickets(list)
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    setLoading(true)
+    void loadTickets()
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) {
+          logout()
+          return
+        }
+        setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось загрузить обращения')
+      })
+      .finally(() => setLoading(false))
+  }, [token, loadTickets, logout])
+
+  useEffect(() => {
+    if (!token || !selectedId) {
+      setDetail(null)
+      return
+    }
+    void getSupportTicket(token, selectedId)
+      .then(setDetail)
+      .catch(() => setDetail(null))
+  }, [token, selectedId])
+
+  const createTicket = async (status: 'draft' | 'open') => {
+    if (!token) return
     setError(null)
     const s = subject.trim()
     const m = message.trim()
-    const email = user?.email ?? 'unknown@example.local'
-
-    if (status === 'sent' && (s.length < 3 || m.length < 10)) {
+    if (status === 'open' && (s.length < 3 || m.length < 10)) {
       setError('Для отправки заполните тему (≥ 3) и сообщение (≥ 10).')
       return
     }
@@ -107,26 +98,58 @@ export function SupportPage() {
       setError('Черновик пустой.')
       return
     }
-
-    const nextTicket: Ticket = {
-      id: makeId(),
-      subject: s || '(без темы)',
-      message: m || '(пустое сообщение)',
-      email,
-      createdAt: new Date().toISOString(),
-      status,
+    setSubmitting(true)
+    try {
+      const t = await createSupportTicket(token, {
+        subject: s || '(без темы)',
+        body: m || '(пустое сообщение)',
+        status,
+      })
+      setTickets((prev) => [t, ...prev])
+      setSubject('')
+      setMessage('')
+    } catch (e) {
+      setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось создать обращение')
+    } finally {
+      setSubmitting(false)
     }
-    setState((prev) => ({ ...prev, tickets: [nextTicket, ...prev.tickets] }))
-    setSubject('')
-    setMessage('')
   }
 
-  const deleteTicket = (id: string) => {
-    setState((prev) => ({ ...prev, tickets: prev.tickets.filter((t) => t.id !== id) }))
+  const removeTicket = async (id: string) => {
+    if (!token) return
+    try {
+      await deleteSupportTicket(token, id)
+      setTickets((prev) => prev.filter((t) => t.id !== id))
+      if (selectedId === id) setSelectedId(null)
+    } catch (e) {
+      setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось удалить')
+    }
   }
 
-  const sentCount = state.tickets.filter((t) => t.status === 'sent').length
-  const draftCount = state.tickets.filter((t) => t.status === 'draft').length
+  const sendReply = async () => {
+    if (!token || !selectedId) return
+    const body = replyText.trim()
+    if (!body) return
+    setSubmitting(true)
+    try {
+      await addSupportReply(token, selectedId, body)
+      const d = await getSupportTicket(token, selectedId)
+      setDetail(d)
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === selectedId ? { ...t, status: d.status, reply_count: d.replies.length } : t,
+        ),
+      )
+      setReplyText('')
+    } catch (e) {
+      setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось отправить ответ')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openCount = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length
+  const draftCount = tickets.filter((t) => t.status === 'draft').length
 
   if (loading) {
     return <p className="text-slate-500">Загрузка…</p>
@@ -138,41 +161,15 @@ export function SupportPage() {
         ← К проектам
       </Link>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Поддержка и новости</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Обращения сохраняются на сервере для вашей учётной записи.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void reset()}
-            disabled={saving}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
-          >
-            Сбросить
-          </button>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={!dirty || saving}
-            className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
-          >
-            {saving ? 'Сохранение…' : 'Сохранить'}
-          </button>
-        </div>
+      <div className="mt-3">
+        <h1 className="text-2xl font-semibold text-white">Поддержка и новости</h1>
+        <p className="mt-1 text-sm text-slate-400">Обращения хранятся в базе данных с ответами и статусами.</p>
       </div>
 
-      {savedAt ? <p className="mt-2 text-xs text-slate-500">Сохранено: {new Date(savedAt).toLocaleString()}</p> : null}
-      {storeError ? <p className="mt-2 text-xs text-amber-200/90">{storeError}</p> : null}
+      {error ? <p className="mt-2 text-xs text-amber-200/90">{error}</p> : null}
 
       <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900/40 p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white/90">Новости</h2>
-          <span className="text-xs text-slate-500">{NEWS.length}</span>
-        </div>
+        <h2 className="text-sm font-semibold text-white/90">Новости</h2>
         <div className="mt-4 space-y-3">
           {NEWS.map((n) => (
             <div key={n.title} className="rounded-lg border border-slate-800 bg-slate-950/30 px-4 py-3">
@@ -194,44 +191,37 @@ export function SupportPage() {
           </div>
 
           <div className="mt-4 space-y-3">
-            <label className="block">
-              <span className="text-xs text-slate-400">Тема</span>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-                placeholder="Например: Не получается войти"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs text-slate-400">Сообщение</span>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={6}
-                className="mt-1 w-full resize-none rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-                placeholder="Опишите проблему и шаги воспроизведения…"
-              />
-            </label>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+              placeholder="Тема"
+            />
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={6}
+              className="w-full resize-none rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+              placeholder="Опишите проблему…"
+            />
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => createTicket('draft')}
-                className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+                disabled={submitting}
+                onClick={() => void createTicket('draft')}
+                className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
               >
-                Сохранить как черновик
+                Черновик
               </button>
               <button
                 type="button"
-                onClick={() => createTicket('sent')}
-                className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600"
+                disabled={submitting}
+                onClick={() => void createTicket('open')}
+                className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
               >
                 Отправить
               </button>
             </div>
-            <p className="text-xs text-slate-600">
-              После создания обращения нажмите «Сохранить», чтобы записать его на сервер.
-            </p>
           </div>
         </section>
 
@@ -239,38 +229,88 @@ export function SupportPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white/90">Мои обращения</h2>
             <span className="text-xs text-slate-500">
-              отправлено: {sentCount} · черновики: {draftCount}
+              открыто: {openCount} · черновики: {draftCount}
             </span>
           </div>
 
           <div className="mt-4 divide-y divide-slate-800 overflow-hidden rounded-lg border border-slate-800">
-            {state.tickets.length === 0 ? (
-              <div className="bg-slate-950/30 px-4 py-6 text-center text-sm text-slate-400">
-                Пока нет обращений.
-              </div>
+            {tickets.length === 0 ? (
+              <div className="bg-slate-950/30 px-4 py-6 text-center text-sm text-slate-400">Пока нет обращений.</div>
             ) : (
-              state.tickets.slice(0, 30).map((t) => (
-                <div key={t.id} className="bg-slate-950/30 px-4 py-3">
+              tickets.slice(0, 30).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSelectedId(t.id)}
+                  className={`block w-full bg-slate-950/30 px-4 py-3 text-left hover:bg-slate-900/50 ${
+                    selectedId === t.id ? 'ring-1 ring-emerald-500/40' : ''
+                  }`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium text-white/85">{t.subject}</div>
                       <div className="mt-1 text-xs text-slate-500">
-                        {t.status === 'sent' ? 'Отправлено' : 'Черновик'} · {new Date(t.createdAt).toLocaleString()}
+                        {statusLabel(t.status)} · {new Date(t.created_at).toLocaleString()}
+                        {t.reply_count > 0 ? ` · ответов: ${t.reply_count}` : ''}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => deleteTicket(t.id)}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void removeTicket(t.id)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.stopPropagation()
+                          void removeTicket(t.id)
+                        }
+                      }}
                       className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
                     >
                       Удалить
-                    </button>
+                    </span>
                   </div>
-                  <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-400">{t.message}</p>
-                </div>
+                  <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-400">{t.body}</p>
+                </button>
               ))
             )}
           </div>
+
+          {detail ? (
+            <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/30 p-4">
+              <div className="text-sm font-semibold text-white/90">Переписка</div>
+              <div className="mt-3 max-h-48 space-y-2 overflow-auto">
+                {detail.replies.length === 0 ? (
+                  <p className="text-xs text-slate-500">Ответов пока нет.</p>
+                ) : (
+                  detail.replies.map((r) => (
+                    <div key={r.id} className="rounded border border-slate-800 px-3 py-2 text-sm">
+                      <div className="text-xs text-slate-500">{r.author_email}</div>
+                      <div className="mt-1 text-slate-300">{r.body}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Ваш ответ…"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+                />
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void sendReply()}
+                  className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm text-white hover:bg-emerald-600 disabled:opacity-40"
+                >
+                  Ответить
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

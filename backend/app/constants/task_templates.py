@@ -300,6 +300,23 @@ DEFAULT_CHECKLISTS: dict[str, dict[str, tuple[str, ...]]] = {
 }
 
 
+# Стартовые задачи при применении шаблона проекта (колонки задаёт kind / board preset).
+STARTER_TASKS: dict[str, list[dict[str, str]]] = {
+    ProjectKind.general.value: [
+        {"title": "Определить цель и критерии готовности", "status": "todo"},
+        {"title": "Разобрать входящие задачи", "status": "todo"},
+    ],
+    ProjectKind.development.value: [
+        {"title": "Настроить репозиторий и окружение", "status": "backlog"},
+        {"title": "Описать acceptance criteria для MVP", "status": "ready"},
+    ],
+    ProjectKind.operations_support.value: [
+        {"title": "Проверить очередь новых обращений", "status": "new"},
+        {"title": "Обновить runbook по типовым инцидентам", "status": "triaged"},
+    ],
+}
+
+
 def checklist_markdown(kind: str | None, status: str) -> str | None:
     if not kind:
         kind = ProjectKind.general.value

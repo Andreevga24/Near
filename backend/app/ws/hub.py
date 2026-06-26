@@ -67,3 +67,4 @@ class ProjectWSHub:
 
 # Один экземпляр на процесс Uvicorn (воркер)
 project_ws_hub = ProjectWSHub()
+chat_ws_hub = ProjectWSHub()

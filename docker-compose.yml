@@ -1,4 +1,9 @@
-# Near: Redis для backend и будущего Celery (БД по умолчанию — SQLite в файле backend/near.db)
+# Near: Redis для backend и будущего Celery
+#
+# База приложения — SQLite (файл backend/near.db после alembic upgrade head).
+# Backend и frontend запускаются локально (см. README); в compose только Redis.
+# План PostgreSQL: docs/POSTGRES_MIGRATION.md
+#
 services:
   redis:
     image: redis:7-alpine

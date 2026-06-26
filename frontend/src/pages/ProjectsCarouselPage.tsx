@@ -15,6 +15,7 @@ import {
   type Project,
   type ProjectShare,
 } from '../api/projects'
+import { projectRoleLabel } from '../api/projectMembers'
 import { badgeProjectKind, labelProjectKind } from '../constants/projectKinds'
 import { useAuth } from '../context/AuthContext'
 import { emitProjectsChanged } from '../nearEvents'
@@ -183,7 +184,9 @@ export function ProjectsCarouselPage() {
             ref={scrollerRef}
             className="flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth px-1 pb-4 pt-2 md:px-14 [scrollbar-width:thin]"
           >
-            {projects.map((p) => (
+            {projects.map((p) => {
+              const role = p.my_role ?? 'owner'
+              return (
               <article
                 key={p.id}
                 className="snap-center shrink-0 select-none"
@@ -192,9 +195,14 @@ export function ProjectsCarouselPage() {
                 <div className="flex h-full min-h-[220px] flex-col rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5 shadow-lg shadow-black/20 backdrop-blur">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <h2 className="text-lg font-semibold leading-snug text-white">{p.name}</h2>
-                    <span className="near-badge shrink-0 border-0 bg-slate-700/80 text-white">
-                      {badgeProjectKind(p.kind)}
-                    </span>
+                    <div className="flex shrink-0 flex-wrap gap-1">
+                      <span className="near-badge shrink-0 border-0 bg-violet-900/50 text-violet-100">
+                        {projectRoleLabel(role)}
+                      </span>
+                      <span className="near-badge shrink-0 border-0 bg-slate-700/80 text-white">
+                        {badgeProjectKind(p.kind)}
+                      </span>
+                    </div>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">{labelProjectKind(p.kind)}</p>
                   {p.description ? (
@@ -209,53 +217,57 @@ export function ProjectsCarouselPage() {
                     >
                       Доска
                     </Link>
-                    {shareByProject[p.id]?.enabled ? (
-                      <>
-                        <a
-                          href={
-                            shareByProject[p.id]?.share_id
-                              ? publicUrlForShareId(shareByProject[p.id]!.share_id!)
-                              : '#'
-                          }
-                          onClick={(e) => {
-                            if (!shareByProject[p.id]?.share_id) return
-                            e.preventDefault()
-                            void copyToClipboard(publicUrlForShareId(shareByProject[p.id]!.share_id!))
-                          }}
-                          className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-950/40"
-                          title="Скопировать публичную ссылку"
-                        >
-                          Публичная ссылка
-                        </a>
+                    {role === 'owner' ? (
+                      shareByProject[p.id]?.enabled ? (
+                        <>
+                          <a
+                            href={
+                              shareByProject[p.id]?.share_id
+                                ? publicUrlForShareId(shareByProject[p.id]!.share_id!)
+                                : '#'
+                            }
+                            onClick={(e) => {
+                              if (!shareByProject[p.id]?.share_id) return
+                              e.preventDefault()
+                              void copyToClipboard(publicUrlForShareId(shareByProject[p.id]!.share_id!))
+                            }}
+                            className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-950/40"
+                            title="Скопировать публичную ссылку"
+                          >
+                            Публичная ссылка
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => void handleDisableShare(p.id)}
+                            className="near-btn-secondary"
+                          >
+                            Выключить
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => void handleDisableShare(p.id)}
+                          onClick={() => void handleEnableShare(p.id)}
                           className="near-btn-secondary"
+                          title="Включить и скопировать ссылку"
                         >
-                          Выключить
+                          Публичная ссылка
                         </button>
-                      </>
-                    ) : (
+                      )
+                    ) : null}
+                    {role === 'owner' ? (
                       <button
                         type="button"
-                        onClick={() => void handleEnableShare(p.id)}
-                        className="near-btn-secondary"
-                        title="Включить и скопировать ссылку"
+                        onClick={() => void handleDelete(p.id, p.name)}
+                        className="near-btn-danger"
                       >
-                        Публичная ссылка
+                        Удалить
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(p.id, p.name)}
-                      className="near-btn-danger"
-                    >
-                      Удалить
-                    </button>
+                    ) : null}
                   </div>
                 </div>
               </article>
-            ))}
+            )})}
           </div>
         </div>
       )}

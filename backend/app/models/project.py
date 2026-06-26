@@ -29,6 +29,12 @@ class Project(Base):
     # Публичный read-only доступ по ссылке (случайный идентификатор).
     share_id: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    share_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+    public_hidden_columns: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     owner_id: Mapped[UUID] = mapped_column(
         GUID,
@@ -56,6 +62,14 @@ class Project(Base):
     )
 
     task_links: Mapped[list["TaskLink"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    members: Mapped[list["ProjectMember"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    invites: Mapped[list["ProjectInvite"]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
     )
