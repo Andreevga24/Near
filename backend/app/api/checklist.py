@@ -72,59 +72,6 @@ async def create_checklist_item(
     return item
 
 
-@router.put("/{item_id}", response_model=ChecklistItemRead)
-async def update_checklist_item(
-    item_id: UUID,
-    payload: ChecklistItemUpdate,
-    user: User = Depends(current_active_user),
-    session: AsyncSession = Depends(get_async_session),
-) -> TaskChecklistItem:
-    res = await session.execute(select(TaskChecklistItem).where(TaskChecklistItem.id == item_id))
-    item = res.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Пункт чеклиста не найден")
-    await get_owned_task_or_404(session, user, item.task_id)
-
-    before_done = item.is_done
-    data = payload.model_dump(exclude_unset=True)
-    for k, v in data.items():
-        setattr(item, k, v)
-    await session.commit()
-    await session.refresh(item)
-    if "is_done" in data and item.is_done != before_done:
-        await add_activity(
-            session,
-            task_id=item.task_id,
-            actor_id=user.id,
-            type="checklist_item_toggled",
-            data={"text": item.text, "is_done": item.is_done},
-        )
-    return item
-
-
-@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def delete_checklist_item(
-    item_id: UUID,
-    user: User = Depends(current_active_user),
-    session: AsyncSession = Depends(get_async_session),
-) -> Response:
-    res = await session.execute(select(TaskChecklistItem).where(TaskChecklistItem.id == item_id))
-    item = res.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Пункт чеклиста не найден")
-    await get_owned_task_or_404(session, user, item.task_id)
-    await add_activity(
-        session,
-        task_id=item.task_id,
-        actor_id=user.id,
-        type="checklist_item_deleted",
-        data={"text": item.text},
-    )
-    await session.execute(delete(TaskChecklistItem).where(TaskChecklistItem.id == item_id))
-    await session.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
 @router.put("/reorder", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def reorder_checklist_items(
     payload: ChecklistReorder,
@@ -163,5 +110,63 @@ async def reorder_checklist_items(
         type="checklist_reordered",
         data={"count": len(requested)},
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{item_id}", response_model=ChecklistItemRead)
+async def update_checklist_item(
+    item_id: UUID,
+    payload: ChecklistItemUpdate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> TaskChecklistItem:
+    res = await session.execute(select(TaskChecklistItem).where(TaskChecklistItem.id == item_id))
+    item = res.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Пункт чеклиста не найден")
+    await get_owned_task_or_404(session, user, item.task_id)
+
+    before_done = item.is_done
+    data = payload.model_dump(exclude_unset=True)
+    if "position" in data:
+        raise HTTPException(
+            status_code=400,
+            detail="Для изменения порядка используйте PUT /checklist-items/reorder",
+        )
+    for k, v in data.items():
+        setattr(item, k, v)
+    await session.commit()
+    await session.refresh(item)
+    if "is_done" in data and item.is_done != before_done:
+        await add_activity(
+            session,
+            task_id=item.task_id,
+            actor_id=user.id,
+            type="checklist_item_toggled",
+            data={"text": item.text, "is_done": item.is_done},
+        )
+    return item
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def delete_checklist_item(
+    item_id: UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> Response:
+    res = await session.execute(select(TaskChecklistItem).where(TaskChecklistItem.id == item_id))
+    item = res.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Пункт чеклиста не найден")
+    await get_owned_task_or_404(session, user, item.task_id)
+    await add_activity(
+        session,
+        task_id=item.task_id,
+        actor_id=user.id,
+        type="checklist_item_deleted",
+        data={"text": item.text},
+    )
+    await session.execute(delete(TaskChecklistItem).where(TaskChecklistItem.id == item_id))
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -8,7 +8,7 @@ import { ApiError } from './auth'
 import { enqueueOfflineRequest } from './offlineQueue'
 
 const MSG_UPSTREAM_DOWN =
-  'Сервер API на порту 8000 не запущен или не отвечает. Запустите backend (uvicorn на :8000).'
+  'Сервер API Near на порту 8002 не запущен или не отвечает. Запустите backend (uvicorn на :8002).'
 
 function throwIfBadGateway(res: Response): void {
   if (res.status === 502 || res.status === 504) {

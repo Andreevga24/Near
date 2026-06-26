@@ -18,7 +18,7 @@ async def add_activity(
     task_id: UUID,
     actor_id: UUID | None,
     type: str,
-    data: dict,
+    data: dict[str, object],
 ) -> TaskActivity:
     a = TaskActivity(
         task_id=task_id,
@@ -30,4 +30,3 @@ async def add_activity(
     await session.commit()
     await session.refresh(a)
     return a
-

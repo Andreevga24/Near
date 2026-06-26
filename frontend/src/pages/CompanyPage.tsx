@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
+import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
 
 type CompanyMemberRole = 'owner' | 'admin' | 'member' | 'viewer'
 
 type CompanyMember = {
   id: string
   email: string
+  fullName: string
+  position: string
   role: CompanyMemberRole
   addedAt: string
 }
@@ -23,13 +26,12 @@ type CompanyProfile = {
 const DEFAULT_COMPANY: CompanyProfile = {
   name: 'Near Demo Company',
   website: '',
-  about: 'Это локальная карточка компании (MVP). Данные сохраняются в браузере и не уходят на сервер.',
+  about: 'Карточка компании и список сотрудников. Данные хранятся на сервере для вашей учётной записи.',
   members: [],
   updatedAt: new Date(0).toISOString(),
 }
 
 function makeId(): string {
-  // Нужен простой уникальный id без зависимостей.
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
 }
 
@@ -65,6 +67,8 @@ function safeParseCompany(raw: string | null): CompanyProfile | null {
             .map((m) => ({
               id: typeof m.id === 'string' ? m.id : makeId(),
               email: typeof m.email === 'string' ? m.email : '',
+              fullName: typeof m.fullName === 'string' ? m.fullName : '',
+              position: typeof m.position === 'string' ? m.position : '',
               role: (m.role === 'owner' || m.role === 'admin' || m.role === 'member' || m.role === 'viewer'
                 ? m.role
                 : 'member') as CompanyMemberRole,
@@ -81,60 +85,47 @@ function safeParseCompany(raw: string | null): CompanyProfile | null {
 
 export function CompanyPage() {
   const { user } = useAuth()
+  const legacyStorageKey = useMemo(() => (user ? `near_company_v1_${user.id}` : null), [user])
 
-  const storageKey = useMemo(() => (user ? `near_company_v1_${user.id}` : null), [user])
-
-  const [company, setCompany] = useState<CompanyProfile>(DEFAULT_COMPANY)
-  const [dirty, setDirty] = useState(false)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
+  const {
+    data: company,
+    setData: setCompany,
+    loading,
+    dirty,
+    savedAt,
+    error,
+    saving,
+    save,
+    reset,
+  } = useWorkspaceStore<CompanyProfile>({
+    storeKey: 'company',
+    defaultValue: DEFAULT_COMPANY,
+    legacyStorageKey,
+    parseLegacy: safeParseCompany,
+  })
 
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteFullName, setInviteFullName] = useState('')
+  const [invitePosition, setInvitePosition] = useState('')
   const [inviteRole, setInviteRole] = useState<CompanyMemberRole>('member')
   const [inviteError, setInviteError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!storageKey) return
-    const loaded = safeParseCompany(localStorage.getItem(storageKey))
-    const base = loaded ?? DEFAULT_COMPANY
-
-    // Автодобавляем текущего пользователя как owner (локально), если список пуст.
-    if (user && base.members.length === 0) {
-      setCompany({
-        ...base,
-        members: [
-          {
-            id: makeId(),
-            email: normalizeEmail(user.email),
-            role: 'owner',
-            addedAt: new Date().toISOString(),
-          },
-        ],
-      })
-      setDirty(true)
-      return
-    }
-
-    setCompany(base)
-    setDirty(false)
-    setSavedAt(null)
-  }, [storageKey, user])
-
-  const save = () => {
-    if (!storageKey) return
-    const next: CompanyProfile = { ...company, updatedAt: new Date().toISOString() }
-    localStorage.setItem(storageKey, JSON.stringify(next))
-    setCompany(next)
-    setDirty(false)
-    setSavedAt(next.updatedAt)
-  }
-
-  const resetLocal = () => {
-    if (!storageKey) return
-    localStorage.removeItem(storageKey)
-    setCompany(DEFAULT_COMPANY)
-    setDirty(true)
-    setSavedAt(null)
-  }
+    if (loading || !user || company.members.length > 0) return
+    setCompany({
+      ...company,
+      members: [
+        {
+          id: makeId(),
+          email: normalizeEmail(user.email),
+          fullName: '',
+          position: '',
+          role: 'owner',
+          addedAt: new Date().toISOString(),
+        },
+      ],
+    })
+  }, [loading, user, company, setCompany])
 
   const addMember = () => {
     setInviteError(null)
@@ -147,42 +138,52 @@ export function CompanyPage() {
       setInviteError('Этот email уже есть в списке')
       return
     }
-    const next: CompanyProfile = {
+    setCompany({
       ...company,
       members: [
         ...company.members,
         {
           id: makeId(),
           email,
+          fullName: inviteFullName.trim(),
+          position: invitePosition.trim(),
           role: inviteRole,
           addedAt: new Date().toISOString(),
         },
       ],
-    }
-    setCompany(next)
+    })
     setInviteEmail('')
+    setInviteFullName('')
+    setInvitePosition('')
     setInviteRole('member')
-    setDirty(true)
   }
 
-  const updateRole = (id: string, role: CompanyMemberRole) => {
-    const next: CompanyProfile = {
+  const updateMember = (id: string, patch: Partial<Pick<CompanyMember, 'fullName' | 'position' | 'role'>>) => {
+    setCompany({
       ...company,
-      members: company.members.map((m) => (m.id === id ? { ...m, role } : m)),
-    }
-    setCompany(next)
-    setDirty(true)
+      members: company.members.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    })
   }
 
   const removeMember = (id: string) => {
     const target = company.members.find((m) => m.id === id)
     if (target?.role === 'owner') {
-      setInviteError('Нельзя удалить владельца (MVP-ограничение)')
+      setInviteError('Нельзя удалить владельца')
       return
     }
-    const next: CompanyProfile = { ...company, members: company.members.filter((m) => m.id !== id) }
-    setCompany(next)
-    setDirty(true)
+    setCompany({ ...company, members: company.members.filter((m) => m.id !== id) })
+  }
+
+  const handleSave = () => {
+    void save()
+  }
+
+  const handleReset = () => {
+    void reset()
+  }
+
+  if (loading) {
+    return <p className="text-slate-500">Загрузка…</p>
   }
 
   return (
@@ -195,29 +196,31 @@ export function CompanyPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Моя компания</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Пока это <span className="text-slate-300">локальный MVP</span>: данные сохраняются в браузере для вашей учётки.
+            Карточка компании и сотрудники сохраняются на сервере для вашей учётной записи.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={resetLocal}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+            onClick={handleReset}
+            disabled={saving}
+            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
           >
-            Сбросить локально
+            Сбросить
           </button>
           <button
             type="button"
-            onClick={save}
-            disabled={!dirty}
+            onClick={handleSave}
+            disabled={!dirty || saving}
             className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
           >
-            Сохранить
+            {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
         </div>
       </div>
 
       {savedAt ? <p className="mt-2 text-xs text-slate-500">Сохранено: {new Date(savedAt).toLocaleString()}</p> : null}
+      {error ? <p className="mt-2 text-xs text-amber-200/90">{error}</p> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-6">
@@ -227,10 +230,7 @@ export function CompanyPage() {
               <span className="text-xs text-slate-400">Название</span>
               <input
                 value={company.name}
-                onChange={(e) => {
-                  setCompany((c) => ({ ...c, name: e.target.value }))
-                  setDirty(true)
-                }}
+                onChange={(e) => setCompany((c) => ({ ...c, name: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
               />
             </label>
@@ -238,10 +238,7 @@ export function CompanyPage() {
               <span className="text-xs text-slate-400">Сайт</span>
               <input
                 value={company.website}
-                onChange={(e) => {
-                  setCompany((c) => ({ ...c, website: e.target.value }))
-                  setDirty(true)
-                }}
+                onChange={(e) => setCompany((c) => ({ ...c, website: e.target.value }))}
                 placeholder="https://"
                 className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
               />
@@ -250,10 +247,7 @@ export function CompanyPage() {
               <span className="text-xs text-slate-400">Описание</span>
               <textarea
                 value={company.about}
-                onChange={(e) => {
-                  setCompany((c) => ({ ...c, about: e.target.value }))
-                  setDirty(true)
-                }}
+                onChange={(e) => setCompany((c) => ({ ...c, about: e.target.value }))}
                 rows={5}
                 className="mt-1 w-full resize-none rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
               />
@@ -267,45 +261,75 @@ export function CompanyPage() {
             <span className="text-xs text-slate-500">{company.members.length}</span>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr,160px,auto]">
-            <input
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="email сотрудника"
-              className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-            />
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as CompanyMemberRole)}
-              className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-            >
-              <option value="admin">Администратор</option>
-              <option value="member">Участник</option>
-              <option value="viewer">Наблюдатель</option>
-            </select>
-            <button
-              type="button"
-              onClick={addMember}
-              className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10"
-            >
-              Добавить
-            </button>
+          <div className="mt-4 space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input
+                value={inviteFullName}
+                onChange={(e) => setInviteFullName(e.target.value)}
+                placeholder="ФИО"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+              />
+              <input
+                value={invitePosition}
+                onChange={(e) => setInvitePosition(e.target.value)}
+                placeholder="Должность"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+              />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr,160px,auto]">
+              <input
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+              />
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as CompanyMemberRole)}
+                className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+              >
+                <option value="admin">Администратор</option>
+                <option value="member">Участник</option>
+                <option value="viewer">Наблюдатель</option>
+              </select>
+              <button
+                type="button"
+                onClick={addMember}
+                className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10"
+              >
+                Добавить
+              </button>
+            </div>
           </div>
 
           {inviteError ? <p className="mt-2 text-xs text-amber-200/90">{inviteError}</p> : null}
 
           <div className="mt-5 divide-y divide-slate-800 overflow-hidden rounded-lg border border-slate-800">
             {company.members.map((m) => (
-              <div key={m.id} className="flex flex-wrap items-center gap-3 bg-slate-950/30 px-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-white/90">{m.email}</div>
-                  <div className="mt-0.5 text-xs text-slate-500">
+              <div key={m.id} className="flex flex-wrap items-start gap-3 bg-slate-950/30 px-3 py-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      value={m.fullName}
+                      onChange={(e) => updateMember(m.id, { fullName: e.target.value })}
+                      placeholder="ФИО"
+                      className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+                    />
+                    <input
+                      value={m.position}
+                      onChange={(e) => updateMember(m.id, { position: e.target.value })}
+                      placeholder="Должность"
+                      className="w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
+                    />
+                  </div>
+                  <div className="truncate text-xs text-slate-500">{m.email}</div>
+                  <div className="text-xs text-slate-600">
                     Добавлен: {new Date(m.addedAt).toLocaleDateString()}
                   </div>
                 </div>
                 <select
                   value={m.role}
-                  onChange={(e) => updateRole(m.id, e.target.value as CompanyMemberRole)}
+                  onChange={(e) => updateMember(m.id, { role: e.target.value as CompanyMemberRole })}
                   disabled={m.role === 'owner'}
                   className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60 disabled:opacity-60"
                 >
@@ -329,13 +353,8 @@ export function CompanyPage() {
               </div>
             ) : null}
           </div>
-
-          <p className="mt-4 text-xs text-slate-600">
-            Подключим backend позже: команды/приглашения/роли сейчас сохраняются только локально.
-          </p>
         </section>
       </div>
     </div>
   )
 }
-

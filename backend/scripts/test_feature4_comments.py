@@ -5,7 +5,7 @@ import urllib.error
 import uuid
 
 
-BASE = "http://127.0.0.1:8000"
+BASE = "http://127.0.0.1:8002"
 
 
 def req(method: str, path: str, headers=None, body=None):

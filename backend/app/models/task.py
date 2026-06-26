@@ -58,6 +58,14 @@ class Task(Base):
         onupdate=func.now(),
     )
 
+    # Архив: closed_at задан — задача не на доске; completed — итог закрытия
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+    completed: Mapped[bool | None] = mapped_column(nullable=True)
+
     project: Mapped["Project"] = relationship(back_populates="tasks")
     assignee: Mapped["User | None"] = relationship(
         back_populates="assigned_tasks",

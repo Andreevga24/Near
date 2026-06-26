@@ -26,6 +26,9 @@ const ProjectBoardPage = lazy(() =>
 const ProjectFocusPage = lazy(() =>
   import('./pages/ProjectFocusPage').then((m) => ({ default: m.ProjectFocusPage })),
 )
+const ProjectArchivePage = lazy(() =>
+  import('./pages/ProjectArchivePage').then((m) => ({ default: m.ProjectArchivePage })),
+)
 const ProfileSettingsPage = lazy(() =>
   import('./pages/ProfileSettingsPage').then((m) => ({ default: m.ProfileSettingsPage })),
 )
@@ -66,6 +69,7 @@ function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
               <Route path="/projects/:projectId/focus" element={<ProjectFocusPage />} />
+              <Route path="/projects/:projectId/archive" element={<ProjectArchivePage />} />
               <Route path="/settings" element={<ProfileSettingsPage />} />
               <Route path="/settings/presets" element={<PresetEditorPage />} />
               <Route path="/workspace/company" element={<CompanyPage />} />

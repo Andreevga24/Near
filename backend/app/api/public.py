@@ -36,7 +36,7 @@ async def read_public_project_board(
 
     t_res = await session.execute(
         select(Task)
-        .where(Task.project_id == project.id)
+        .where(Task.project_id == project.id, Task.closed_at.is_(None))
         .order_by(Task.status.asc(), Task.position.asc(), Task.created_at.asc()),
     )
     l_res = await session.execute(

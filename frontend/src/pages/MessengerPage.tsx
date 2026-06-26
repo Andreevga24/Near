@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
+import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
 
 type Channel = {
   id: string
@@ -76,31 +77,39 @@ function safeParseState(raw: string | null): MessengerState | null {
 
 export function MessengerPage() {
   const { user } = useAuth()
+  const legacyStorageKey = useMemo(() => (user ? `near_messenger_v1_${user.id}` : null), [user])
 
-  const storageKey = useMemo(() => (user ? `near_messenger_v1_${user.id}` : null), [user])
-  const [state, setState] = useState<MessengerState>(DEFAULT_STATE)
+  const {
+    data: state,
+    setData: setState,
+    loading,
+    dirty,
+    savedAt,
+    error: storeError,
+    setError,
+    saving,
+    save,
+    reset,
+  } = useWorkspaceStore<MessengerState>({
+    storeKey: 'messenger',
+    defaultValue: DEFAULT_STATE,
+    legacyStorageKey,
+    parseLegacy: safeParseState,
+  })
+
   const [activeChannelId, setActiveChannelId] = useState<string>('general')
-  const [dirty, setDirty] = useState(false)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
-
   const [newChannelTitle, setNewChannelTitle] = useState('')
   const [composerText, setComposerText] = useState('')
-  const [error, setError] = useState<string | null>(null)
 
   const listRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (!storageKey) return
-    const loaded = safeParseState(localStorage.getItem(storageKey)) ?? DEFAULT_STATE
-    setState(loaded)
+    if (loading) return
     setActiveChannelId((prev) => {
-      if (loaded.channels.some((c) => c.id === prev)) return prev
-      return loaded.channels[0]?.id ?? 'general'
+      if (state.channels.some((c) => c.id === prev)) return prev
+      return state.channels[0]?.id ?? 'general'
     })
-    setDirty(false)
-    setSavedAt(null)
-    setError(null)
-  }, [storageKey])
+  }, [loading, state.channels])
 
   const messagesForActive = useMemo(
     () => state.messages.filter((m) => m.channelId === activeChannelId).slice(-200),
@@ -108,30 +117,10 @@ export function MessengerPage() {
   )
 
   useEffect(() => {
-    // Прокрутка вниз при новых сообщениях.
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [messagesForActive.length, activeChannelId])
-
-  const save = () => {
-    if (!storageKey) return
-    const next: MessengerState = { ...state, updatedAt: new Date().toISOString() }
-    localStorage.setItem(storageKey, JSON.stringify(next))
-    setState(next)
-    setDirty(false)
-    setSavedAt(next.updatedAt)
-  }
-
-  const resetLocal = () => {
-    if (!storageKey) return
-    localStorage.removeItem(storageKey)
-    setState(DEFAULT_STATE)
-    setActiveChannelId('general')
-    setDirty(true)
-    setSavedAt(null)
-    setError(null)
-  }
 
   const createChannel = () => {
     setError(null)
@@ -145,22 +134,19 @@ export function MessengerPage() {
       return
     }
     const id = makeId()
-    const next: MessengerState = {
+    setState({
       ...state,
       channels: [...state.channels, { id, title, createdAt: new Date().toISOString() }],
-    }
-    setState(next)
+    })
     setActiveChannelId(id)
     setNewChannelTitle('')
-    setDirty(true)
   }
 
   const sendMessage = () => {
     setError(null)
     const text = composerText.trim()
-    if (!text) return
-    if (!user) return
-    const next: MessengerState = {
+    if (!text || !user) return
+    setState({
       ...state,
       messages: [
         ...state.messages,
@@ -172,13 +158,15 @@ export function MessengerPage() {
           createdAt: new Date().toISOString(),
         },
       ],
-    }
-    setState(next)
+    })
     setComposerText('')
-    setDirty(true)
   }
 
   const activeChannel = state.channels.find((c) => c.id === activeChannelId) ?? state.channels[0]
+
+  if (loading) {
+    return <p className="text-slate-500">Загрузка…</p>
+  }
 
   return (
     <div className="min-h-[70vh]">
@@ -190,30 +178,31 @@ export function MessengerPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Мессенджер</h1>
           <p className="mt-1 text-sm text-slate-400">
-            MVP-чат: хранение <span className="text-slate-300">локально</span>, без сервера и сокетов.
+            Каналы и сообщения сохраняются на сервере для вашей учётной записи.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={resetLocal}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+            onClick={() => void reset()}
+            disabled={saving}
+            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
           >
-            Сбросить локально
+            Сбросить
           </button>
           <button
             type="button"
-            onClick={save}
-            disabled={!dirty}
+            onClick={() => void save()}
+            disabled={!dirty || saving}
             className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
           >
-            Сохранить
+            {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
         </div>
       </div>
 
       {savedAt ? <p className="mt-2 text-xs text-slate-500">Сохранено: {new Date(savedAt).toLocaleString()}</p> : null}
-      {error ? <p className="mt-2 text-xs text-amber-200/90">{error}</p> : null}
+      {storeError ? <p className="mt-2 text-xs text-amber-200/90">{storeError}</p> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px,1fr]">
         <aside className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
@@ -307,11 +296,10 @@ export function MessengerPage() {
                 Отправить
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-slate-600">Совет: Ctrl+Enter для отправки.</p>
+            <p className="mt-2 text-[11px] text-slate-600">Совет: Ctrl+Enter для отправки. Не забудьте нажать «Сохранить».</p>
           </div>
         </section>
       </div>
     </div>
   )
 }
-

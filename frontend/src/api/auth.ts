@@ -4,12 +4,12 @@
 
 import { API_BASE_URL } from '../config'
 
-/** Ответ прокси Vite, если на :8000 никто не слушает (backend не запущен). */
+/** Ответ прокси Vite, если на :8002 никто не слушает (backend не запущен). */
 const MSG_UPSTREAM_DOWN =
-  'Сервер API на порту 8000 не запущен или не отвечает. В корне репозитория выполните: .\\scripts\\start-backend.ps1 (интернет для pip; Docker опционально для Redis). Либо вручную в backend: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000.'
+  'Сервер API Near на порту 8002 не запущен или не отвечает. В корне репозитория выполните: .\\scripts\\start-backend.ps1 (интернет для pip; Docker опционально для Redis). Либо вручную в backend: uvicorn app.main:app --reload --host 127.0.0.1 --port 8002.'
 
 function throwIfBadGateway(res: Response): void {
-  // 502/504 — обычно прокси Vite, когда процесс на :8000 не слушает.
+  // 502/504 — обычно прокси Vite, когда процесс на :8002 не слушает.
   // 503 оставляем для ответа самого API (например «база данных недоступна»).
   if (res.status === 502 || res.status === 504) {
     throw new ApiError(res.status, { detail: MSG_UPSTREAM_DOWN })

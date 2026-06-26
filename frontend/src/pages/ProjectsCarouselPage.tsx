@@ -11,6 +11,7 @@ import {
   disableProjectShare,
   enableProjectShare,
   listProjects,
+  readProjectShare,
   type Project,
   type ProjectShare,
 } from '../api/projects'
@@ -35,6 +36,17 @@ export function ProjectsCarouselPage() {
     try {
       const list = await listProjects(token)
       setProjects(list)
+      const shares = await Promise.all(
+        list.map(async (p) => {
+          try {
+            const share = await readProjectShare(token, p.id)
+            return [p.id, share] as const
+          } catch {
+            return [p.id, undefined] as const
+          }
+        }),
+      )
+      setShareByProject(Object.fromEntries(shares))
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         logout()

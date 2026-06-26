@@ -27,6 +27,7 @@ from app.api.timeline import router as timeline_router
 from app.api.checklist import router as checklist_router
 from app.api.presets import router as presets_router
 from app.api.public import router as public_router
+from app.api.workspace import router as workspace_router
 from app.ws.router import router as ws_router
 from app.auth.manager import auth_backend, current_active_user, fastapi_users
 from app.db.session import engine
@@ -133,6 +134,7 @@ app.include_router(timeline_router)
 app.include_router(checklist_router)
 app.include_router(presets_router)
 app.include_router(public_router)
+app.include_router(workspace_router)
 app.include_router(ws_router)
 
 

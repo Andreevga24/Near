@@ -10,6 +10,7 @@ from app.models.task_link import TaskLink
 from app.models.task_activity import TaskActivity
 from app.models.task_checklist_item import TaskChecklistItem
 from app.models.kind_preset import KindPreset
+from app.models.user_workspace_store import UserWorkspaceStore
 
 __all__ = (
     "User",
@@ -20,4 +21,5 @@ __all__ = (
     "TaskActivity",
     "TaskChecklistItem",
     "KindPreset",
+    "UserWorkspaceStore",
 )

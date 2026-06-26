@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
+import { useWorkspaceStore } from '../hooks/useWorkspaceStore'
 
 type TicketStatus = 'sent' | 'draft'
 
@@ -21,14 +22,14 @@ type SupportState = {
 
 const NEWS: Array<{ title: string; body: string; at: string }> = [
   {
-    title: 'V0.0.3',
-    at: '2026-04-24T00:00:00.000Z',
-    body: 'Связи задач, режим фокуса, панель задачи (чеклист/комменты/таймлайн), офлайн-очередь (MVP), публичная read-only доска.',
+    title: 'V0.0.4',
+    at: '2026-06-01T00:00:00.000Z',
+    body: 'Workspace-разделы (компания, мессенджер, поддержка) сохраняются на сервере.',
   },
   {
-    title: 'V0.0.2',
-    at: '2026-04-01T00:00:00.000Z',
-    body: 'Сайдбар/шапка, карусель проектов, типы проектов (kind), ноды (React Flow), профиль и улучшения устойчивости UI.',
+    title: 'V0.0.3',
+    at: '2026-04-24T00:00:00.000Z',
+    body: 'Связи задач, режим фокуса, панель задачи, офлайн-очередь (MVP), публичная read-only доска.',
   },
 ]
 
@@ -69,42 +70,28 @@ function safeParseState(raw: string | null): SupportState | null {
 
 export function SupportPage() {
   const { user } = useAuth()
+  const legacyStorageKey = useMemo(() => (user ? `near_support_v1_${user.id}` : null), [user])
 
-  const storageKey = useMemo(() => (user ? `near_support_v1_${user.id}` : null), [user])
-  const [state, setState] = useState<SupportState>(DEFAULT_STATE)
-  const [dirty, setDirty] = useState(false)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
+  const {
+    data: state,
+    setData: setState,
+    loading,
+    dirty,
+    savedAt,
+    error: storeError,
+    setError,
+    saving,
+    save,
+    reset,
+  } = useWorkspaceStore<SupportState>({
+    storeKey: 'support',
+    defaultValue: DEFAULT_STATE,
+    legacyStorageKey,
+    parseLegacy: safeParseState,
+  })
 
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!storageKey) return
-    const loaded = safeParseState(localStorage.getItem(storageKey)) ?? DEFAULT_STATE
-    setState(loaded)
-    setDirty(false)
-    setSavedAt(null)
-    setError(null)
-  }, [storageKey])
-
-  const save = () => {
-    if (!storageKey) return
-    const next: SupportState = { ...state, updatedAt: new Date().toISOString() }
-    localStorage.setItem(storageKey, JSON.stringify(next))
-    setState(next)
-    setDirty(false)
-    setSavedAt(next.updatedAt)
-  }
-
-  const resetLocal = () => {
-    if (!storageKey) return
-    localStorage.removeItem(storageKey)
-    setState(DEFAULT_STATE)
-    setDirty(true)
-    setSavedAt(null)
-    setError(null)
-  }
 
   const createTicket = (status: TicketStatus) => {
     setError(null)
@@ -132,16 +119,18 @@ export function SupportPage() {
     setState((prev) => ({ ...prev, tickets: [nextTicket, ...prev.tickets] }))
     setSubject('')
     setMessage('')
-    setDirty(true)
   }
 
   const deleteTicket = (id: string) => {
     setState((prev) => ({ ...prev, tickets: prev.tickets.filter((t) => t.id !== id) }))
-    setDirty(true)
   }
 
   const sentCount = state.tickets.filter((t) => t.status === 'sent').length
   const draftCount = state.tickets.filter((t) => t.status === 'draft').length
+
+  if (loading) {
+    return <p className="text-slate-500">Загрузка…</p>
+  }
 
   return (
     <div>
@@ -153,30 +142,31 @@ export function SupportPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Поддержка и новости</h1>
           <p className="mt-1 text-sm text-slate-400">
-            MVP: FAQ + локальные “тикеты” (без отправки на сервер).
+            Обращения сохраняются на сервере для вашей учётной записи.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={resetLocal}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10"
+            onClick={() => void reset()}
+            disabled={saving}
+            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
           >
-            Сбросить локально
+            Сбросить
           </button>
           <button
             type="button"
-            onClick={save}
-            disabled={!dirty}
+            onClick={() => void save()}
+            disabled={!dirty || saving}
             className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
           >
-            Сохранить
+            {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
         </div>
       </div>
 
       {savedAt ? <p className="mt-2 text-xs text-slate-500">Сохранено: {new Date(savedAt).toLocaleString()}</p> : null}
-      {error ? <p className="mt-2 text-xs text-amber-200/90">{error}</p> : null}
+      {storeError ? <p className="mt-2 text-xs text-amber-200/90">{storeError}</p> : null}
 
       <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900/40 p-6">
         <div className="flex items-center justify-between">
@@ -208,10 +198,7 @@ export function SupportPage() {
               <span className="text-xs text-slate-400">Тема</span>
               <input
                 value={subject}
-                onChange={(e) => {
-                  setSubject(e.target.value)
-                  setDirty(true)
-                }}
+                onChange={(e) => setSubject(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
                 placeholder="Например: Не получается войти"
               />
@@ -220,10 +207,7 @@ export function SupportPage() {
               <span className="text-xs text-slate-400">Сообщение</span>
               <textarea
                 value={message}
-                onChange={(e) => {
-                  setMessage(e.target.value)
-                  setDirty(true)
-                }}
+                onChange={(e) => setMessage(e.target.value)}
                 rows={6}
                 className="mt-1 w-full resize-none rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
                 placeholder="Опишите проблему и шаги воспроизведения…"
@@ -242,11 +226,11 @@ export function SupportPage() {
                 onClick={() => createTicket('sent')}
                 className="rounded-lg bg-emerald-600/90 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600"
               >
-                Отправить (локально)
+                Отправить
               </button>
             </div>
             <p className="text-xs text-slate-600">
-              Сейчас “отправка” — это сохранение в локальный список. Позже подключим реальный backend/почту/интеграции.
+              После создания обращения нажмите «Сохранить», чтобы записать его на сервер.
             </p>
           </div>
         </section>
@@ -292,4 +276,3 @@ export function SupportPage() {
     </div>
   )
 }
-

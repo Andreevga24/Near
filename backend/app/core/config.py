@@ -22,5 +22,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "near-dev-secret-change-me-use-openssl-rand-hex-32"
     JWT_LIFETIME_SECONDS: int = 60 * 60 * 24  # 24 часа
 
+    # Срок хранения закрытых задач в архиве (дней), после — удаление из БД
+    TASK_ARCHIVE_RETENTION_DAYS: int = 30
+
 
 settings = Settings()

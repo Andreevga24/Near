@@ -3,7 +3,7 @@
  */
 
 import { type FormEvent, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { ApiError, formatApiError } from '../api/auth'
 import { createProject } from '../api/projects'
@@ -18,6 +18,7 @@ import { emitProjectsChanged } from '../nearEvents'
 
 export function ProjectsPage() {
   const { token, logout } = useAuth()
+  const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -30,15 +31,17 @@ export function ProjectsPage() {
     setSaving(true)
     setError(null)
     try {
-      await createProject(token, {
+      const project = await createProject(token, {
         name: name.trim(),
         description: description.trim() || null,
         kind,
       })
+      if (!project?.id) {
+        setError('Проект создан локально; откройте его после восстановления связи')
+        return
+      }
       emitProjectsChanged()
-      setName('')
-      setDescription('')
-      setKind(DEFAULT_PROJECT_KIND)
+      navigate(`/projects/${project.id}`, { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout()

@@ -17,7 +17,7 @@ class CommentRead(BaseModel):
     author_email: str | None = None
     body: str
     created_at: datetime
-    mentions: list[str] = []
+    mentions: list[str] = Field(default_factory=list)
 
 
 class CommentCreate(BaseModel):

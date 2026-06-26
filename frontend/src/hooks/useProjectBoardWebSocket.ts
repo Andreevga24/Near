@@ -7,6 +7,8 @@ type WsMessage =
   | { type: 'task_created'; task_id: string; project_id: string }
   | { type: 'task_updated'; task_id: string; project_id: string }
   | { type: 'task_deleted'; task_id: string; project_id: string }
+  | { type: 'task_closed'; task_id: string; project_id: string }
+  | { type: 'task_restored'; task_id: string; project_id: string }
   | { type: 'project_deleted'; project_id: string }
   | {
       type: 'link_created' | 'link_deleted'
@@ -38,7 +40,7 @@ function parseWsPayload(raw: unknown): WsMessage | null {
     }
   }
   if (
-    (o.type === 'task_created' || o.type === 'task_updated' || o.type === 'task_deleted') &&
+    (o.type === 'task_created' || o.type === 'task_updated' || o.type === 'task_deleted' || o.type === 'task_closed' || o.type === 'task_restored') &&
     typeof o.task_id === 'string' &&
     typeof o.project_id === 'string'
   ) {
@@ -110,7 +112,7 @@ export function useProjectBoardWebSocket(options: {
             })()
             return
           }
-          if (msg.type === 'task_deleted') {
+          if (msg.type === 'task_deleted' || msg.type === 'task_closed') {
             h.onTaskDeleted(msg.task_id)
             emitTasksChanged()
             return

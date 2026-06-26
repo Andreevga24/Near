@@ -22,8 +22,23 @@ class TaskRead(BaseModel):
     priority: int
     due_at: datetime | None
     assignee_id: UUID | None
+    closed_at: datetime | None = None
+    completed: bool | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class TaskClose(BaseModel):
+    """Закрытие задачи с отметкой о выполнении."""
+
+    completed: bool
+
+
+class ArchivedTasksRead(BaseModel):
+    """Список архивных задач проекта и настройка срока хранения."""
+
+    retention_days: int
+    tasks: list[TaskRead]
 
 
 class TaskCreate(BaseModel):

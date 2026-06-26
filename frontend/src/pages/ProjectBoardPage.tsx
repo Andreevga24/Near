@@ -27,6 +27,7 @@ import { createTaskLink, deleteTaskLink, listTaskLinks, type TaskLink, type Task
 import { listTimeline, type TimelineEvent } from '../api/timeline'
 import { fetchKindPreset } from '../api/presets'
 import {
+  closeTask,
   createTask,
   deleteTask,
   listTasks,
@@ -254,7 +255,7 @@ export function ProjectBoardPage() {
           logout()
           return
         }
-        setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось загрузить комментарии')
+        setError(e instanceof ApiError ? formatApiError(e.body) : 'Не удалось загрузить данные задачи')
       } finally {
         setCommentsLoading(false)
         setTimelineLoading(false)
@@ -264,7 +265,7 @@ export function ProjectBoardPage() {
     [token, logout],
   )
 
-  const closeTask = useCallback(() => {
+  const closeTaskPanel = useCallback(() => {
     setOpenTaskId(null)
     setTaskComments([])
     setCommentDraft('')
@@ -434,9 +435,15 @@ export function ProjectBoardPage() {
     [token, refreshComments, refreshTimeline, logout],
   )
 
-  const onWsTaskDeleted = useCallback((taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId))
-  }, [])
+  const onWsTaskDeleted = useCallback(
+    (taskId: string) => {
+      setTasks((prev) => prev.filter((t) => t.id !== taskId))
+      if (openTaskId === taskId) {
+        closeTaskPanel()
+      }
+    },
+    [openTaskId, closeTaskPanel],
+  )
 
   const onWsProjectDeleted = useCallback(() => {
     emitProjectsChanged()
@@ -477,6 +484,9 @@ export function ProjectBoardPage() {
       setTasks((prev) => [...prev, task])
       emitTasksChanged()
       setNewTitle('')
+      if (!task.pending) {
+        await openTask(task)
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout()
@@ -494,6 +504,7 @@ export function ProjectBoardPage() {
     setError(null)
     try {
       const updated = await updateTask(token, task.id, { status: next })
+      if (!updated) return
       setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -510,6 +521,7 @@ export function ProjectBoardPage() {
     setError(null)
     try {
       const updated = await updateTask(token, task.id, { status: prev })
+      if (!updated) return
       setTasks((p) => p.map((t) => (t.id === updated.id ? updated : t)))
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -526,6 +538,7 @@ export function ProjectBoardPage() {
       setError(null)
       try {
         const updated = await updateTask(token, task.id, { status: newStatus })
+        if (!updated) return
         setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -589,6 +602,30 @@ export function ProjectBoardPage() {
     [token, projectId, reloadLinksOnly, logout],
   )
 
+  async function handleCloseTask(task: Task, completed: boolean) {
+    if (!token) return
+    const label = completed ? 'выполненной' : 'не выполненной'
+    if (!window.confirm(`Закрыть задачу «${task.title}» как ${label}? Она уйдёт в архив.`)) return
+    setError(null)
+    setSaving(true)
+    try {
+      await closeTask(token, task.id, completed)
+      setTasks((prev) => prev.filter((t) => t.id !== task.id))
+      if (openTaskId === task.id) {
+        closeTaskPanel()
+      }
+      emitTasksChanged()
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        logout()
+        return
+      }
+      setError(err instanceof ApiError ? formatApiError(err.body) : 'Не удалось закрыть задачу')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleDeleteTask(task: Task) {
     if (!token) return
     if (!window.confirm(`Удалить задачу «${task.title}»?`)) return
@@ -596,6 +633,9 @@ export function ProjectBoardPage() {
     try {
       await deleteTask(token, task.id)
       setTasks((prev) => prev.filter((t) => t.id !== task.id))
+      if (openTaskId === task.id) {
+        closeTaskPanel()
+      }
       emitTasksChanged()
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -733,6 +773,12 @@ export function ProjectBoardPage() {
             </button>
           </div>
           <Link
+            to={`/projects/${projectId}/archive`}
+            className="near-btn-secondary mt-2 w-full px-3 py-2 text-xs"
+          >
+            Архив задач
+          </Link>
+          <Link
             to={`/projects/${projectId}/focus`}
             className="near-btn-secondary mt-2 w-full px-3 py-2 text-xs"
           >
@@ -808,8 +854,8 @@ export function ProjectBoardPage() {
           <button
             type="button"
             className="absolute inset-0 bg-black/60"
-            onClick={closeTask}
-            aria-label="Закрыть"
+            onClick={closeTaskPanel}
+            aria-label="Свернуть панель"
           />
           <aside className="absolute right-0 top-0 h-full w-[min(92vw,520px)] border-l border-slate-800 bg-slate-950 p-4 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
@@ -826,12 +872,47 @@ export function ProjectBoardPage() {
               </div>
               <button
                 type="button"
-                onClick={closeTask}
+                onClick={closeTaskPanel}
                 className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
               >
-                Закрыть
+                Свернуть
               </button>
             </div>
+
+            {currentTask ? (
+              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Закрыть задачу
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Задача уйдёт в архив на 30 дней (срок настраивается на сервере).
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCloseTask(currentTask, true)}
+                    disabled={saving}
+                    className="rounded-lg bg-emerald-600/90 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    Выполнена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCloseTask(currentTask, false)}
+                    disabled={saving}
+                    className="rounded-lg border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-950/50 disabled:opacity-50"
+                  >
+                    Не выполнена
+                  </button>
+                  <Link
+                    to={`/projects/${projectId}/archive`}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800"
+                  >
+                    Архив →
+                  </Link>
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-6">
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Чеклист</p>

@@ -152,7 +152,7 @@ export function HomePage() {
                   </div>
                 </div>
                 <p className="mt-4 text-xs text-slate-500">
-                  Хотите больше? Загляните в разделы Workspace — там уже есть MVP-страницы (локально).
+                  Хотите больше? Загляните в разделы Workspace — компания, мессенджер и поддержка сохраняются на сервере.
                 </p>
               </div>
             </section>

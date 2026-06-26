@@ -34,7 +34,14 @@ def _terminal_statuses(kind: str | None) -> set[str]:
     return {preset[-1]}
 
 
-@router.get("/next", response_model=TaskRead)
+@router.get(
+    "/next",
+    response_model=None,
+    responses={
+        200: {"model": TaskRead},
+        204: {"description": "Нет задач для режима фокуса"},
+    },
+)
 async def next_focus_task(
     project_id: UUID = Query(..., description="Идентификатор проекта"),
     user: User = Depends(current_active_user),
@@ -55,7 +62,7 @@ async def next_focus_task(
     col_index = {s: i for i, s in enumerate(preset)}
     terminals = _terminal_statuses(project.kind)
 
-    result = await session.execute(select(Task).where(Task.project_id == project_id))
+    result = await session.execute(select(Task).where(Task.project_id == project_id, Task.closed_at.is_(None)))
     tasks = list(result.scalars().all())
 
     # фильтруем терминальные статусы

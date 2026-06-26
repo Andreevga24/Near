@@ -150,7 +150,9 @@ async def delete_task_link(
             ),
         )
 
-    await session.execute(stmt)
+    result = await session.execute(stmt)
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Связь не найдена")
     await session.commit()
     await add_activity(
         session,

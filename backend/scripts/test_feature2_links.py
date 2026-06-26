@@ -5,7 +5,7 @@ import urllib.request
 import uuid
 
 
-BASE = "http://127.0.0.1:8000"
+BASE = "http://127.0.0.1:8002"
 
 
 def req(method: str, path: str, *, headers: dict[str, str] | None = None, body=None):
@@ -80,7 +80,7 @@ def main() -> None:
     async def ws_expect(event_type: str, action_coro):
         import websockets
 
-        ws_url = f"ws://127.0.0.1:8000/ws/{project_id}?token={urllib.parse.quote(token)}"
+        ws_url = f"ws://127.0.0.1:8002/ws/{project_id}?token={urllib.parse.quote(token)}"
         async with websockets.connect(ws_url, open_timeout=10) as ws:
             # run action, then read events until found or timeout
             await action_coro()

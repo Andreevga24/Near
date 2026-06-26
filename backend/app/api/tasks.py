@@ -2,6 +2,7 @@
 CRUD задач: доступ только к задачам проектов, которыми владеет текущий пользователь.
 """
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,15 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.access import get_owned_project_or_404, get_owned_task_or_404
 from app.constants.board_presets import first_status_for_kind
-from app.constants.task_templates import checklist_markdown
 from app.auth.manager import current_active_user
 from app.db.session import get_async_session
-from app.models.project import Project
 from app.models.task import Task
 from app.models.task_checklist_item import TaskChecklistItem
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
+from app.schemas.task import ArchivedTasksRead, TaskClose, TaskCreate, TaskRead, TaskUpdate
 from app.services.presets import get_effective_kind_preset
+from app.services.task_archive import archive_retention_days, purge_expired_archived_tasks
 from app.services.timeline import add_activity
 from app.ws.hub import project_ws_hub
 
@@ -40,14 +40,35 @@ async def list_tasks(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> list[Task]:
-    """Список задач выбранного проекта (сортировка: колонка канбана, затем порядок)."""
+    """Список активных задач проекта (без архива)."""
     await get_owned_project_or_404(session, user, project_id)
+    await purge_expired_archived_tasks(session)
     result = await session.execute(
         select(Task)
-        .where(Task.project_id == project_id)
+        .where(Task.project_id == project_id, Task.closed_at.is_(None))
         .order_by(Task.status.asc(), Task.position.asc(), Task.created_at.asc()),
     )
     return list(result.scalars().all())
+
+
+@router.get("/archived", response_model=ArchivedTasksRead)
+async def list_archived_tasks(
+    project_id: UUID = Query(..., description="Идентификатор проекта"),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> ArchivedTasksRead:
+    """Закрытые задачи в архиве (до истечения срока хранения)."""
+    await get_owned_project_or_404(session, user, project_id)
+    await purge_expired_archived_tasks(session)
+    result = await session.execute(
+        select(Task)
+        .where(Task.project_id == project_id, Task.closed_at.isnot(None))
+        .order_by(Task.closed_at.desc()),
+    )
+    return ArchivedTasksRead(
+        retention_days=archive_retention_days(),
+        tasks=list(result.scalars().all()),
+    )
 
 
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
@@ -66,15 +87,10 @@ async def create_task(
                 detail="Исполнитель с указанным id не найден",
             )
     eff_status = payload.status if payload.status is not None else first_status_for_kind(project.kind)
-    eff_description = payload.description
-    if eff_description is None or (isinstance(eff_description, str) and not eff_description.strip()):
-        md = checklist_markdown(project.kind, eff_status)
-        if md:
-            eff_description = md
     task = Task(
         project_id=payload.project_id,
         title=payload.title,
-        description=eff_description,
+        description=payload.description,
         status=eff_status,
         position=payload.position,
         priority=payload.priority,
@@ -84,7 +100,7 @@ async def create_task(
     session.add(task)
     await session.commit()
     await session.refresh(task)
-    _hints, eff_checklists = await get_effective_kind_preset(session, project.kind)
+    _, eff_checklists = await get_effective_kind_preset(session, project.kind)
     tmpl = tuple(eff_checklists.get(eff_status, ()))
     if tmpl:
         for i, text in enumerate(tmpl):
@@ -104,6 +120,63 @@ async def create_task(
     return task
 
 
+@router.post("/{task_id}/close", response_model=TaskRead)
+async def close_task(
+    task_id: UUID,
+    payload: TaskClose,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> Task:
+    """Закрыть задачу и отправить в архив."""
+    task = await get_owned_task_or_404(session, user, task_id)
+    if task.closed_at is not None:
+        raise HTTPException(status_code=400, detail="Задача уже закрыта")
+    task.closed_at = datetime.now(timezone.utc)
+    task.completed = payload.completed
+    await session.commit()
+    await session.refresh(task)
+    await add_activity(
+        session,
+        task_id=task.id,
+        actor_id=user.id,
+        type="task_closed",
+        data={"completed": payload.completed, "title": task.title},
+    )
+    await project_ws_hub.broadcast_json(
+        task.project_id,
+        _task_ws_payload("task_closed", task.id, task.project_id),
+    )
+    return task
+
+
+@router.post("/{task_id}/restore", response_model=TaskRead)
+async def restore_task(
+    task_id: UUID,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+) -> Task:
+    """Вернуть задачу из архива на доску."""
+    task = await get_owned_task_or_404(session, user, task_id)
+    if task.closed_at is None:
+        raise HTTPException(status_code=400, detail="Задача не в архиве")
+    task.closed_at = None
+    task.completed = None
+    await session.commit()
+    await session.refresh(task)
+    await add_activity(
+        session,
+        task_id=task.id,
+        actor_id=user.id,
+        type="task_restored",
+        data={"title": task.title},
+    )
+    await project_ws_hub.broadcast_json(
+        task.project_id,
+        _task_ws_payload("task_restored", task.id, task.project_id),
+    )
+    return task
+
+
 @router.put("/{task_id}", response_model=TaskRead)
 async def update_task(
     task_id: UUID,
@@ -113,6 +186,8 @@ async def update_task(
 ) -> Task:
     """Обновить поля задачи (переданные ключи)."""
     task = await get_owned_task_or_404(session, user, task_id)
+    if task.closed_at is not None:
+        raise HTTPException(status_code=400, detail="Нельзя редактировать задачу в архиве. Восстановите её на доску.")
     before_status = task.status
     before_title = task.title
     before_priority = getattr(task, "priority", 0)
