@@ -1,11 +1,12 @@
 /**
- * Форма регистрации: POST /register с JSON { email, password }.
+ * Форма регистрации с согласием на обработку ПДн (152-ФЗ).
  */
 
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { ApiError, formatApiError, loginUser, registerUser } from '../api/auth'
+import { fetchLegalMeta, type LegalMeta } from '../api/legal'
 import { useAuth } from '../context/AuthContext'
 
 export function RegisterPage() {
@@ -14,19 +15,40 @@ export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
+  const [accepted, setAccepted] = useState(false)
+  const [meta, setMeta] = useState<LegalMeta | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    void fetchLegalMeta()
+      .then(setMeta)
+      .catch(() => setMeta(null))
+  }, [])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!accepted) {
+      setError('Необходимо принять политику конфиденциальности и пользовательское соглашение')
+      return
+    }
+    if (!meta) {
+      setError('Не удалось загрузить версии юридических документов. Попробуйте позже.')
+      return
+    }
     if (password !== password2) {
       setError('Пароли не совпадают')
       return
     }
     setPending(true)
     try {
-      await registerUser(email.trim(), password)
+      await registerUser(email.trim(), password, {
+        accept_privacy: true,
+        accept_terms: true,
+        privacy_version: meta.privacy_version,
+        terms_version: meta.terms_version,
+      })
       const { access_token } = await loginUser(email.trim(), password)
       setToken(access_token)
       navigate('/projects/carousel', { replace: true })
@@ -79,15 +101,33 @@ export function RegisterPage() {
             />
           </label>
 
-          {error ? (
-            <p className="near-alert-error">{error}</p>
-          ) : null}
+          <label className="flex items-start gap-2 text-left text-sm text-slate-400">
+            <input
+              type="checkbox"
+              checked={accepted}
+              onChange={(e) => setAccepted(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              Я принимаю{' '}
+              <Link to="/legal/privacy" target="_blank" className="near-link">
+                политику конфиденциальности
+              </Link>
+              ,{' '}
+              <Link to="/legal/terms" target="_blank" className="near-link">
+                пользовательское соглашение
+              </Link>{' '}
+              и даю{' '}
+              <Link to="/legal/consent" target="_blank" className="near-link">
+                согласие на обработку персональных данных
+              </Link>
+              . Мне исполнилось 18 лет или я действую от имени организации.
+            </span>
+          </label>
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="near-btn-primary mt-2 py-2.5"
-          >
+          {error ? <p className="near-alert-error">{error}</p> : null}
+
+          <button type="submit" disabled={pending || !accepted} className="near-btn-primary mt-2 py-2.5">
             {pending ? 'Создание…' : 'Зарегистрироваться'}
           </button>
         </form>

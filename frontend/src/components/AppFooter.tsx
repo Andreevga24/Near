@@ -27,6 +27,12 @@ export function AppFooter() {
           <Link to="/workspace/support" className="text-slate-400 hover:text-slate-200">
             Поддержка
           </Link>
+          <Link to="/legal/privacy" className="text-slate-400 hover:text-slate-200">
+            Конфиденциальность
+          </Link>
+          <Link to="/legal/terms" className="text-slate-400 hover:text-slate-200">
+            Соглашение
+          </Link>
         </nav>
 
         <div className="text-xs text-slate-500">© {new Date().getFullYear()} Near</div>
@@ -34,4 +40,3 @@ export function AppFooter() {
     </footer>
   )
 }
-

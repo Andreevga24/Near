@@ -2,8 +2,45 @@
 
 from __future__ import annotations
 
+import uuid
+
 from httpx import AsyncClient
 import pytest
+
+from app.legal.constants import PRIVACY_VERSION, TERMS_VERSION
+
+
+@pytest.mark.asyncio
+async def test_register_requires_consent(client: AsyncClient) -> None:
+    email = f"noconsent_{uuid.uuid4().hex[:10]}@example.com"
+    resp = await client.post(
+        "/register",
+        json={"email": email, "password": "TestPass123!"},
+    )
+    assert resp.status_code == 422
+
+    resp2 = await client.post(
+        "/register",
+        json={
+            "email": email,
+            "password": "TestPass123!",
+            "accept_privacy": False,
+            "accept_terms": True,
+            "privacy_version": PRIVACY_VERSION,
+            "terms_version": TERMS_VERSION,
+        },
+    )
+    assert resp2.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_legal_meta(client: AsyncClient) -> None:
+    resp = await client.get("/legal/meta")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["privacy_version"] == PRIVACY_VERSION
+    assert body["terms_version"] == TERMS_VERSION
+    assert "operator_name" in body
 
 
 @pytest.mark.asyncio

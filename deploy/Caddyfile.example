@@ -1,0 +1,6 @@
+# Пример Caddy на хосте (TLS + reverse proxy к Docker web:80)
+# /etc/caddy/Caddyfile
+
+near.example.com {
+    reverse_proxy 127.0.0.1:80
+}

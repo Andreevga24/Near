@@ -1,4 +1,5 @@
-# Запуск Near API (опционально Redis в Docker + uvicorn; БД — SQLite по умолчанию).
+# Запуск Near API (Redis/PostgreSQL опционально в Docker + uvicorn).
+# SQLite по умолчанию; PostgreSQL: сначала .\scripts\start-postgres.ps1
 # Запускать из PowerShell:  cd d:\Near   .\scripts\start-backend.ps1
 
 $ErrorActionPreference = "Stop"

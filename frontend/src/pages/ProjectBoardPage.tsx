@@ -249,6 +249,11 @@ export function ProjectBoardPage() {
 
   const enableShare = useCallback(async () => {
     if (!token || !projectId) return
+    const ok = window.confirm(
+      'Публичная ссылка откроет read-only доступ к задачам проекта без входа в систему. ' +
+        'Не включайте ссылку, если в задачах есть персональные или конфиденциальные данные. Продолжить?',
+    )
+    if (!ok) return
     setSaving(true)
     setError(null)
     try {

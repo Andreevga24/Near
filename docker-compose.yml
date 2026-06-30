@@ -1,10 +1,26 @@
-# Near: Redis для backend и будущего Celery
+# Near: PostgreSQL (prod/dev) + Redis
 #
-# База приложения — SQLite (файл backend/near.db после alembic upgrade head).
-# Backend и frontend запускаются локально (см. README); в compose только Redis.
-# План PostgreSQL: docs/POSTGRES_MIGRATION.md
+# SQLite по умолчанию для локальной разработки без Docker.
+# PostgreSQL: docker compose up -d postgres  →  см. docs/POSTGRES_MIGRATION.md
 #
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: near-postgres
+    environment:
+      POSTGRES_USER: near
+      POSTGRES_PASSWORD: near
+      POSTGRES_DB: near
+    ports:
+      - "5432:5432"
+    volumes:
+      - near_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U near -d near"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     container_name: near-redis
@@ -15,3 +31,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+volumes:
+  near_pg_data:

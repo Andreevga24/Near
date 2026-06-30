@@ -9,6 +9,7 @@ from pathlib import Path
 _TEST_DB = Path(__file__).resolve().parent.parent / "test_integration.db"
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB.as_posix()}"
 os.environ["JWT_SECRET"] = "test-jwt-secret-ci-only"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 if _TEST_DB.exists():
     _TEST_DB.unlink()
 
@@ -18,6 +19,18 @@ from httpx import ASGITransport, AsyncClient
 import app.models  # noqa: F401
 from app.db.base import Base
 from app.db.session import engine
+from app.legal.constants import PRIVACY_VERSION, TERMS_VERSION
+
+
+def _register_payload(email: str, password: str) -> dict:
+    return {
+        "email": email,
+        "password": password,
+        "accept_privacy": True,
+        "accept_terms": True,
+        "privacy_version": PRIVACY_VERSION,
+        "terms_version": TERMS_VERSION,
+    }
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -45,7 +58,7 @@ async def client():
 async def auth_headers(client: AsyncClient) -> dict[str, str]:
     email = f"test_{uuid.uuid4().hex[:10]}@example.com"
     password = "TestPass123!"
-    reg = await client.post("/register", json={"email": email, "password": password})
+    reg = await client.post("/register", json=_register_payload(email, password))
     assert reg.status_code in (200, 201), reg.text
     login = await client.post(
         "/login",

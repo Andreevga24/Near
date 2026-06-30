@@ -13,8 +13,7 @@ from app.db.session import get_async_session
 from app.models.project import Project
 from app.models.task import Task
 from app.models.task_link import TaskLink
-from app.schemas.public import PublicProjectBoardRead, PublicProjectRead
-from app.schemas.task import TaskRead
+from app.schemas.public import PublicProjectBoardRead, PublicProjectRead, PublicTaskRead
 from app.schemas.task_link import TaskLinkRead
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -67,7 +66,7 @@ async def read_public_project_board(
         .order_by(TaskLink.type.asc(), TaskLink.created_at.asc()),
     )
 
-    tasks = [TaskRead.model_validate(t) for t in list(t_res.scalars().all())]
+    tasks = [PublicTaskRead.model_validate(t) for t in list(t_res.scalars().all())]
     if hidden:
         hidden_set = set(hidden)
         tasks = [t for t in tasks if t.status not in hidden_set]

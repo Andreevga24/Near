@@ -2,6 +2,20 @@ import { API_BASE_URL } from '../config'
 
 import { ApiError } from './auth'
 
+export type PublicTask = {
+  id: string
+  title: string
+  description: string | null
+  status: string
+  position: number
+  priority: number
+  due_at: string | null
+  closed_at: string | null
+  completed: boolean | null
+  created_at: string
+  updated_at: string
+}
+
 export type PublicProject = {
   id: string
   name: string
@@ -13,19 +27,7 @@ export type PublicProject = {
 
 export type PublicBoardResponse = {
   project: PublicProject
-  tasks: Array<{
-    id: string
-    project_id: string
-    title: string
-    description: string | null
-    status: string
-    position: number
-    priority: number
-    due_at: string | null
-    assignee_id: string | null
-    created_at: string
-    updated_at: string
-  }>
+  tasks: PublicTask[]
   links: Array<{
     id: string
     project_id: string

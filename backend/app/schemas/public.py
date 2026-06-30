@@ -8,8 +8,25 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.project_kinds import ProjectKind
-from app.schemas.task import TaskRead
 from app.schemas.task_link import TaskLinkRead
+
+
+class PublicTaskRead(BaseModel):
+    """Задача на публичной доске — без внутренних идентификаторов исполнителя."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str | None
+    status: str
+    position: int
+    priority: int
+    due_at: datetime | None
+    closed_at: datetime | None = None
+    completed: bool | None = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class PublicProjectRead(BaseModel):
@@ -25,7 +42,7 @@ class PublicProjectRead(BaseModel):
 
 class PublicProjectBoardRead(BaseModel):
     project: PublicProjectRead
-    tasks: list[TaskRead]
+    tasks: list[PublicTaskRead]
     links: list[TaskLinkRead]
     hidden_columns: list[str] = []
     watermark: str = "Near"

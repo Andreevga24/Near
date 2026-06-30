@@ -50,6 +50,9 @@ const AcceptInvitePage = lazy(() =>
 const WorkspacePlaceholderPage = lazy(() =>
   import('./pages/WorkspacePlaceholderPage').then((m) => ({ default: m.WorkspacePlaceholderPage })),
 )
+const LegalDocumentPage = lazy(() =>
+  import('./pages/LegalDocumentPage').then((m) => ({ default: m.LegalDocumentPage })),
+)
 
 function AppFallback() {
   return <div className="flex min-h-svh items-center justify-center text-slate-400">Загрузка…</div>
@@ -66,6 +69,7 @@ function App() {
             <Route path="/public/:shareId" element={<PublicProjectBoardPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/legal/:docType" element={<LegalDocumentPage />} />
             <Route path="/invites/:token" element={<AcceptInvitePage />} />
             <Route
               element={

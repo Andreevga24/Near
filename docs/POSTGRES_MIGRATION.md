@@ -1,6 +1,32 @@
 # План миграции SQLite → PostgreSQL
 
-Near сейчас использует **SQLite** (`sqlite+aiosqlite`) для локальной разработки и MVP. Перед продакшеном с несколькими инстансами backend рекомендуется **PostgreSQL**.
+Near по умолчанию использует **SQLite** (`sqlite+aiosqlite`) для локальной разработки. Для production и нагрузки рекомендуется **PostgreSQL**.
+
+## Быстрый старт (Docker)
+
+```powershell
+cd d:\Near
+.\scripts\start-postgres.ps1
+```
+
+Скрипт поднимает контейнер `near-postgres` и выполняет `alembic upgrade head`.
+
+Затем в `backend/.env`:
+
+```env
+DATABASE_URL=postgresql+asyncpg://near:near@localhost:5432/near
+```
+
+Запуск backend как обычно: `.\scripts\start-backend.ps1`
+
+Или вручную:
+
+```bash
+docker compose up -d postgres
+cd backend
+pip install -r requirements.txt   # включает asyncpg
+DATABASE_URL=postgresql+asyncpg://near:near@localhost:5432/near alembic upgrade head
+```
 
 ## Зачем мигрировать
 
@@ -8,73 +34,106 @@ Near сейчас использует **SQLite** (`sqlite+aiosqlite`) для л
 |--------|------------|
 | Один писатель, блокировки при нагрузке | Конкурентные записи, пул соединений |
 | Файл на диске | Управляемый сервер, бэкапы, репликация |
-| Ограниченные типы и JSON | Полноценный JSONB, полнотекстовый поиск |
+| Не для нескольких инстансов API | Горизонтальное масштабирование backend |
 
-Код уже рассчитан на async SQLAlchemy; в `alembic/env.py` есть ветка для `postgresql+asyncpg`.
+Для соответствия **242-ФЗ** (локализация ПДн) размещайте managed PostgreSQL **в РФ** (Selectel, Yandex Cloud, VK Cloud и т.п.).
 
-## Этапы
+## Настройки пула
 
-### 1. Подготовка окружения
+В `backend/.env` (только PostgreSQL):
 
-1. Поднять PostgreSQL (Docker, managed DB или локально).
-2. Добавить в `backend/requirements.txt` (когда понадобится прод):
-   ```
-   asyncpg>=0.30.0,<1.0.0
-   ```
-3. Задать в `backend/.env`:
-   ```
-   DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/near
-   ```
+```env
+DB_POOL_SIZE=5
+DB_MAX_OVERFLOW=10
+```
 
-### 2. Схема
+Реализовано в `app/db/session.py`.
+
+## Схема
+
+Миграции Alembic совместимы с обеими СУБД. UUID и boolean-дефолты адаптированы под PostgreSQL.
 
 ```bash
 cd backend
 alembic upgrade head
 ```
 
-Миграции Alembic должны применяться на чистой PG-базе так же, как на SQLite. Перед продом прогнать CI и ручной smoke на PostgreSQL.
+CI прогоняет тесты на **SQLite** и **PostgreSQL** (см. `.github/workflows/ci.yml`).
 
-### 3. Перенос данных (если есть prod-данные в SQLite)
+## Перенос данных из SQLite
 
-1. Экспорт из SQLite (один раз):
-   - `sqlite3 near.db .dump` или скрипт на SQLAlchemy, читающий все таблицы.
-2. Адаптация типов:
-   - UUID — уже `CHAR(36)` / native UUID в моделях.
-   - `BOOLEAN`, `DATETIME` — проверить совместимость в дампе.
-3. Импорт в PostgreSQL через `psql` или Python-скрипт построчной вставки с сохранением порядка FK (users → projects → tasks → …).
-4. Сверка счётчиков строк по основным таблицам.
+Если уже есть данные в `backend/near.db`:
 
-Для **пустого** деплоя достаточно только `alembic upgrade head`.
+### Автоматически (Windows)
 
-### 4. Настройки приложения
+```powershell
+cd d:\Near
+.\scripts\migrate-db.ps1
+```
 
-- Убрать `NullPool` для SQLite в `app/db/session.py` — для PostgreSQL уже используется `pool_pre_ping`.
-- Задать разумный `pool_size` / `max_overflow` при высокой нагрузке.
-- `JWT_SECRET`, SMTP и прочие секреты — только через переменные окружения, не в репозитории.
+Скрипт поднимает PostgreSQL (Docker), показывает dry-run и после подтверждения копирует данные.
 
-### 5. Проверка перед cutover
+### Вручную
 
-- [ ] `pytest` на CI с `DATABASE_URL=postgresql+asyncpg://...` (отдельный job или matrix).
-- [ ] Регистрация, проекты, задачи, архив, WebSocket, публичная доска.
-- [ ] Нагрузочный smoke: несколько параллельных клиентов на одном проекте.
+```bash
+cd backend
+pip install -r requirements.txt
 
-### 6. Откат
+# PostgreSQL должен быть запущен (docker compose up -d postgres)
 
-Держать snapshot SQLite до стабилизации PG. При откате — вернуть `DATABASE_URL` на SQLite и старый файл БД (данные, созданные только в PG, не перенесутся автоматически).
+# Проверка без записи
+py -m scripts.migrate_sqlite_to_postgres \
+  --source ./near.db \
+  --target postgresql+asyncpg://near:near@localhost:5432/near \
+  --dry-run
 
-## Оценка трудозатрат
+# Перенос (схема + данные)
+py -m scripts.migrate_sqlite_to_postgres \
+  --source ./near.db \
+  --target postgresql+asyncpg://near:near@localhost:5432/near \
+  --truncate-target
+```
 
-| Задача | Оценка |
-|--------|--------|
-| PG в docker-compose + `.env.example` | 0.5 дня |
-| CI matrix (SQLite + PG) | 0.5 дня |
-| Скрипт миграции данных | 1–2 дня (если нужен перенос) |
-| Smoke + документация деплоя | 0.5 дня |
+Затем в `backend/.env`:
+
+```env
+DATABASE_URL=postgresql+asyncpg://near:near@localhost:5432/near
+```
+
+Параметры:
+
+| Флаг | Назначение |
+|------|------------|
+| `--dry-run` | Только подсчёт строк в SQLite |
+| `--skip-alembic` | Не применять миграции на цели |
+| `--truncate-target` | Очистить PostgreSQL перед копированием |
+
+Скрипт сверяет количество строк по каждой таблице после переноса.
+
+Для **пустого** деплоя достаточно `alembic upgrade head` без скрипта переноса.
+
+## Production
+
+- `ENV=production` запрещает SQLite (см. `app/core/config.py`)
+- Секреты только через env: `DATABASE_URL`, `JWT_SECRET`
+- Не публикуйте порт PostgreSQL в интернет; доступ только из private network
 
 ## Связанные файлы
 
-- `backend/app/core/config.py` — `DATABASE_URL`
-- `backend/app/db/session.py` — engine / pool
-- `backend/alembic/env.py` — async migrations
-- `docker-compose.yml` — сейчас только Redis; PG можно добавить как опциональный сервис
+| Файл | Назначение |
+|------|------------|
+| `docker-compose.yml` | Сервис `postgres` |
+| `scripts/start-postgres.ps1` | Поднять PG + миграции |
+| `backend/app/core/config.py` | `DATABASE_URL`, пул |
+| `backend/app/db/session.py` | Engine / pool |
+| `backend/alembic/env.py` | Async-миграции |
+| `backend/scripts/migrate_sqlite_to_postgres.py` | Перенос данных SQLite → PG |
+
+## Оценка трудозатрат (остаток)
+
+| Задача | Статус |
+|--------|--------|
+| PG в docker-compose + asyncpg | ✅ |
+| CI matrix SQLite + PG | ✅ |
+| Скрипт миграции данных SQLite→PG | ✅ `scripts/migrate_sqlite_to_postgres.py` |
+| Managed PG в РФ + бэкапы | 🔲 инфраструктура |

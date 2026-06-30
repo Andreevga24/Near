@@ -11,10 +11,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
+from app.core.config import settings
 from app.errors import integrity_error_detail
+from app.security.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
 
 # Импорт моделей регистрирует таблицы в metadata (Alembic / SQLAlchemy)
 import app.models  # noqa: F401
@@ -38,11 +41,12 @@ from app.api.support import router as support_router
 from app.api.messenger import router as messenger_router
 from app.api.user_lookup import router as user_lookup_router
 from app.api.search import router as search_router
+from app.api.legal import router as legal_router
 from app.ws.router import router as ws_router
 from app.auth.manager import auth_backend, current_active_user, fastapi_users
 from app.db.session import engine
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.user import UserRead, UserUpdate
 
 
 @asynccontextmanager
@@ -58,21 +62,23 @@ app = FastAPI(
     description="Backend системы управления проектами Near",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 
 @app.exception_handler(OperationalError)
 async def handle_db_operational(_request: Request, _exc: OperationalError) -> JSONResponse:
-    """Нет связи с БД (неверный DATABASE_URL, файл SQLite недоступен, сеть к серверу БД)."""
+    """Нет связи с БД (неверный DATABASE_URL, SQLite недоступен, PostgreSQL не отвечает)."""
+    hint = (
+        "Проверьте DATABASE_URL в backend/.env "
+        "(SQLite: ./near.db; PostgreSQL: postgresql+asyncpg://...; "
+        "локально: docker compose up -d postgres, см. docs/POSTGRES_MIGRATION.md)."
+    )
     return JSONResponse(
         status_code=503,
-        content={
-            "detail": (
-                "Не удалось подключиться к базе данных. Проверьте DATABASE_URL в backend/.env "
-                "(для SQLite по умолчанию файл ./near.db в каталоге backend), "
-                "права на каталог и снова попробуйте запрос."
-            ),
-        },
+        content={"detail": f"Не удалось подключиться к базе данных. {hint}"},
     )
 
 
@@ -104,26 +110,27 @@ async def handle_db_integrity(_request: Request, exc: IntegrityError) -> JSONRes
     )
 
 
-# CORS: Vite dev / preview на localhost и 127.0.0.1 с любым портом
-# На проде замените на конкретные домены фронтенда
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?$",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Security headers и rate limiting (до CORS)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
-# --- Аутентификация (JWT): регистрация и вход на корневых путях по ТЗ ---
-app.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate),
-    prefix="",
-    tags=["auth"],
-)
+# CORS: в production — только CORS_ORIGINS из env
+_cors_kwargs: dict = {
+    "allow_origins": settings.cors_origins_list(),
+    "allow_credentials": True,
+    "allow_methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "allow_headers": ["Authorization", "Content-Type", "Accept", "X-Requested-With"],
+}
+if not settings.is_production:
+    _cors_kwargs["allow_origin_regex"] = r"http://(localhost|127\.0\.0\.1)(:\d+)?$"
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
+
+_trusted = settings.trusted_hosts_list()
+if _trusted:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=_trusted)
+
+# --- Аутентификация (JWT): регистрация с согласием — app.api.legal ---
+app.include_router(legal_router)
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
     prefix="",

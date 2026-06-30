@@ -25,7 +25,7 @@ class ChatChannelRead(BaseModel):
 
 
 class ChatMessageCreate(BaseModel):
-    text: str = Field(min_length=1)
+    text: str = Field(min_length=1, max_length=10_000)
 
 
 class ChatMessageRead(BaseModel):

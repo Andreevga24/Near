@@ -3,9 +3,10 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { ApiError, formatApiError } from '../api/auth'
+import { deleteAccount, downloadAccountExport } from '../api/legal'
 import { patchCurrentUser } from '../api/profile'
 import { useAuth } from '../context/AuthContext'
 import { useUiPreferences } from '../context/UiPreferencesContext'
@@ -45,7 +46,7 @@ function formatPhoneInput(raw: string): string {
 }
 
 export function ProfileSettingsPage() {
-  const { token, user, refreshUser } = useAuth()
+  const { token, user, refreshUser, logout } = useAuth()
   const { locale, theme, setLocale, setTheme, t } = useUiPreferences()
 
   const {
@@ -74,6 +75,13 @@ export function ProfileSettingsPage() {
   const [savingEmail, setSavingEmail] = useState(false)
   const [savingPass, setSavingPass] = useState(false)
   const [showId, setShowId] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const displayName = useMemo(() => {
     const name = profile.fullName.trim()
@@ -407,6 +415,91 @@ export function ProfileSettingsPage() {
         </form>
         {passMsg ? <p className="near-alert-ok mt-3">{passMsg}</p> : null}
         {passError ? <p className="near-alert-warn mt-3">{passError}</p> : null}
+      </section>
+
+      <section className="near-card mt-8 max-w-xl">
+        <h2 className="text-sm font-semibold text-white/90">Персональные данные</h2>
+        <p className="mt-2 text-xs text-slate-500">
+          Права субъекта ПДн (152-ФЗ): экспорт и удаление аккаунта. Документы:{' '}
+          <Link to="/legal/privacy" className="near-link">
+            политика
+          </Link>
+          ,{' '}
+          <Link to="/legal/terms" className="near-link">
+            соглашение
+          </Link>
+          .
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!token || exporting}
+            onClick={() => {
+              if (!token) return
+              setExportMsg(null)
+              setExporting(true)
+              void downloadAccountExport(token)
+                .then(() => setExportMsg('Файл экспорта загружен'))
+                .catch(() => setExportMsg('Не удалось экспортировать данные'))
+                .finally(() => setExporting(false))
+            }}
+            className="near-btn-secondary text-sm disabled:opacity-40"
+          >
+            {exporting ? 'Экспорт…' : 'Скачать мои данные (JSON)'}
+          </button>
+        </div>
+        {exportMsg ? <p className="near-alert-ok mt-3 text-sm">{exportMsg}</p> : null}
+
+        <div className="mt-6 border-t border-slate-800 pt-6">
+          <h3 className="text-sm font-medium text-red-300">Удаление аккаунта</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Безвозвратно удалит аккаунт, проекты, где вы владелец, и связанные данные.
+          </p>
+          <div className="mt-4 space-y-3 max-w-lg">
+            <label className="block text-sm">
+              <span className="text-slate-500">Пароль</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="near-input mt-1"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-slate-500">Введите DELETE для подтверждения</span>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                className="near-input mt-1 font-mono text-sm"
+                placeholder="DELETE"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!token || deleting || deleteConfirm.toUpperCase() !== 'DELETE' || !deletePassword}
+              onClick={() => {
+                if (!token) return
+                setDeleteError(null)
+                setDeleting(true)
+                void deleteAccount(token, deletePassword)
+                  .then(() => {
+                    logout()
+                    navigate('/', { replace: true })
+                  })
+                  .catch((e: unknown) => {
+                    setDeleteError(e instanceof Error ? e.message : 'Не удалось удалить аккаунт')
+                  })
+                  .finally(() => setDeleting(false))
+              }}
+              className="rounded-lg bg-red-900/80 px-4 py-2 text-sm font-medium text-red-100 hover:bg-red-900 disabled:opacity-40"
+            >
+              {deleting ? 'Удаление…' : 'Удалить аккаунт навсегда'}
+            </button>
+          </div>
+          {deleteError ? <p className="near-alert-warn mt-3 text-sm">{deleteError}</p> : null}
+        </div>
       </section>
     </div>
   )

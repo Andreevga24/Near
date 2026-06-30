@@ -1,0 +1,5 @@
+# Production secrets — не коммитить
+.env.prod
+.env
+backend/.env
+frontend/.env

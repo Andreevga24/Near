@@ -13,6 +13,8 @@ from app.schemas.user_lookup import ResolvedEmailRead
 
 router = APIRouter(tags=["users"])
 
+MAX_EMAIL_LOOKUP = 20
+
 
 @router.get("/users/resolve-emails", response_model=list[ResolvedEmailRead])
 async def resolve_emails(
@@ -20,7 +22,7 @@ async def resolve_emails(
     _user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ) -> list[ResolvedEmailRead]:
-    raw = [e.strip().lower() for e in emails.split(",") if e.strip()]
+    raw = [e.strip().lower() for e in emails.split(",") if e.strip()][:MAX_EMAIL_LOOKUP]
     if not raw:
         return []
     res = await session.execute(select(User).where(User.email.in_(raw)))

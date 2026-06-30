@@ -19,6 +19,7 @@ from app.models.support_ticket_reply import SupportTicketReply
 from app.models.chat_channel import ChatChannel
 from app.models.chat_message import ChatMessage
 from app.models.task_time_entry import TaskTimeEntry
+from app.models.user_consent_log import UserConsentLog
 
 __all__ = (
     "User",
@@ -38,4 +39,5 @@ __all__ = (
     "ChatChannel",
     "ChatMessage",
     "TaskTimeEntry",
+    "UserConsentLog",
 )

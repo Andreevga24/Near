@@ -28,6 +28,13 @@ def _ts_default():
     return sa.text("CURRENT_TIMESTAMP")
 
 
+def _bool_default(is_true: bool = False):
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        return sa.text("true" if is_true else "false")
+    return sa.text("1" if is_true else "0")
+
+
 def upgrade() -> None:
     uid = _uuid_type()
     op.create_table(
@@ -35,7 +42,7 @@ def upgrade() -> None:
         sa.Column("id", uid, nullable=False),
         sa.Column("task_id", uid, nullable=False),
         sa.Column("text", sa.String(length=5000), nullable=False),
-        sa.Column("is_done", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_done", sa.Boolean(), nullable=False, server_default=_bool_default(False)),
         sa.Column("position", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=_ts_default(), nullable=False),
         sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="CASCADE"),

@@ -16,6 +16,7 @@ from app.db.session import get_async_session
 from app.models.kind_preset import KindPreset
 from app.models.user import User
 from app.schemas.presets import KindPresetRead, KindPresetUpsert
+from app.security.deps import require_superuser
 from app.services.presets import get_effective_kind_preset, get_effective_starter_tasks
 
 router = APIRouter(prefix="/presets", tags=["presets"])
@@ -50,7 +51,7 @@ async def export_kind_preset(
 async def upsert_kind_preset(
     kind: str,
     payload: KindPresetUpsert,
-    _user: User = Depends(current_active_user),
+    _user: User = Depends(require_superuser),
     session: AsyncSession = Depends(get_async_session),
 ) -> KindPresetRead:
     res = await session.execute(select(KindPreset).where(KindPreset.kind == kind))

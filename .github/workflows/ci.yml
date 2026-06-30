@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  backend:
+  backend-sqlite:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,10 +23,55 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run integration tests
+      - name: Run integration tests (SQLite)
         env:
           DATABASE_URL: sqlite+aiosqlite:///./ci_test.db
           JWT_SECRET: ci-test-jwt-secret
+          RATE_LIMIT_ENABLED: "false"
+        run: pytest -q
+
+  backend-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: near
+          POSTGRES_PASSWORD: near
+          POSTGRES_DB: near
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U near -d near"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Apply migrations (PostgreSQL)
+        env:
+          DATABASE_URL: postgresql+asyncpg://near:near@localhost:5432/near
+        run: alembic upgrade head
+
+      - name: Run integration tests (PostgreSQL)
+        env:
+          DATABASE_URL: postgresql+asyncpg://near:near@localhost:5432/near
+          TARGET_DATABASE_URL: postgresql+asyncpg://near:near@localhost:5432/near
+          JWT_SECRET: ci-test-jwt-secret
+          RATE_LIMIT_ENABLED: "false"
         run: pytest -q
 
   frontend:

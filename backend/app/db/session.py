@@ -1,5 +1,5 @@
 """
-Асинхронный движок и фабрика сессий для работы с БД (SQLite по умолчанию).
+Асинхронный движок и фабрика сессий (SQLite или PostgreSQL).
 """
 
 from collections.abc import AsyncGenerator
@@ -13,18 +13,17 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
-_sqlite = "sqlite" in settings.DATABASE_URL
-
-# Движок на весь процесс; для SQLite — NullPool, чтобы меньше ловить database is locked
 _engine_kw: dict = {"echo": False}
-if _sqlite:
+
+if settings.is_sqlite:
     _engine_kw["poolclass"] = NullPool
 else:
     _engine_kw["pool_pre_ping"] = True
+    _engine_kw["pool_size"] = settings.DB_POOL_SIZE
+    _engine_kw["max_overflow"] = settings.DB_MAX_OVERFLOW
 
 engine = create_async_engine(settings.DATABASE_URL, **_engine_kw)
 
-# Фабрика сессий для FastAPI-зависимостей и фоновых задач
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
@@ -34,9 +33,6 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Зависимость FastAPI: одна сессия на HTTP-запрос.
-    Commit/rollback выполняйте в сервисном слое или в эндпоинте.
-    """
+    """Зависимость FastAPI: одна сессия на HTTP-запрос."""
     async with AsyncSessionLocal() as session:
         yield session

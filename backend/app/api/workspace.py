@@ -20,6 +20,8 @@ from app.schemas.workspace import WORKSPACE_STORE_KEYS, WorkspaceStoreRead, Work
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
 
+MAX_WORKSPACE_JSON_BYTES = 512_000
+
 
 def _validate_store_key(store_key: str) -> str:
     if store_key not in WORKSPACE_STORE_KEYS:
@@ -78,6 +80,11 @@ async def upsert_workspace_store(
 ) -> WorkspaceStoreRead:
     key = _validate_store_key(store_key)
     encoded = json.dumps(payload.data, ensure_ascii=False)
+    if len(encoded.encode("utf-8")) > MAX_WORKSPACE_JSON_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Слишком большой объём данных workspace",
+        )
     row = await _get_store_row(session, user.id, key)
     if row is None:
         row = UserWorkspaceStore(user_id=user.id, store_key=key, data=encoded)

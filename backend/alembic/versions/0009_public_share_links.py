@@ -16,10 +16,19 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _bool_default(is_true: bool = False):
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        return sa.text("true" if is_true else "false")
+    return sa.text("1" if is_true else "0")
+
+
 def upgrade() -> None:
     with op.batch_alter_table("projects") as batch:
         batch.add_column(sa.Column("share_id", sa.String(length=64), nullable=True))
-        batch.add_column(sa.Column("is_public", sa.Boolean(), nullable=False, server_default=sa.text("0")))
+        batch.add_column(
+            sa.Column("is_public", sa.Boolean(), nullable=False, server_default=_bool_default(False)),
+        )
         batch.create_index(batch.f("ix_projects_share_id"), ["share_id"], unique=True)
         batch.create_index(batch.f("ix_projects_is_public"), ["is_public"], unique=False)
 

@@ -31,15 +31,25 @@ export type TokenResponse = {
   token_type: string
 }
 
-/** Регистрация: POST /register, JSON { email, password }. */
+/** Регистрация: POST /register с согласием на обработку ПДн. */
 export async function registerUser(
   email: string,
   password: string,
+  consent: {
+    accept_privacy: boolean
+    accept_terms: boolean
+    privacy_version: string
+    terms_version: string
+  },
 ): Promise<UserMe> {
   const res = await fetch(`${API_BASE_URL}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      ...consent,
+    }),
   })
   if (!res.ok) {
     throwIfBadGateway(res)
